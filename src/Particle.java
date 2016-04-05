@@ -46,6 +46,10 @@ public class Particle
 	{
 		x=x-this.x;
 		y=y-this.y;
+		return localInMap(x,y);
+	}
+	public boolean localInMap(int x, int y)
+	{
 		if(x<0||y<0)
 		{
 			return false;

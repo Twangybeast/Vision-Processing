@@ -1,5 +1,11 @@
 import java.awt.Point;
 
+/*
+ * PURPOSE OF CLASS
+ * 
+ * This was meant to test the findParticles method
+ * By using a precise input, we can examine the errors in the method when it was made
+ */
 
 public class MathTest 
 {

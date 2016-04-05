@@ -5,6 +5,13 @@ import java.util.ArrayList;
 
 public class Vision
 {
+	/*
+	 * TO DO LIST
+	 * [ ] Switch from HSL to HSV					
+	 * [ ] Improve equivalent rectangles class		
+	 * [ ] Figure out wtf moment of inertia is		
+	 * [ ] Decrease findParticles processing time	
+	 */
 	// Because some code was copy pas- *ahem* written by me, arrays that
 	// represent images are weird as they work as map[y][x]
 	// Detail:the reason for this is because the objects were created as
@@ -182,7 +189,9 @@ public class Vision
 	//-----------------------COVERAGE AREA----------------------------------------
 	final double dev=0.03715117993112262*5.0;
 	final double ideal=0.27858733495702565;
-	
+	//-------------------------EQUIVALENT RECTANGLE------------------
+	final int difference=4;
+	final double requiredAngle=Math.toRadians(60);//Minimum angle for corner
 	//---------------------GLOBAL VARIABLE 
 	int[] tHeight;// Height based on equivalent rectangle
 	double[] angles;
@@ -281,226 +290,201 @@ public class Vision
 		return toReturn;
 	}
 
+	private ArrayList<Point> toContour(Particle particle)
+	{
+		Particle contourParticle=new Particle((int)particle.getX(),(int)particle.getY(),new boolean[particle.map.length][particle.map[0].length]);
+		for(int x=0;x<particle.getWidth();x++)
+		{
+			for(int y=0;y<particle.getHeight();y++)
+			{
+				if(particle.getLocalValue(x, y))
+				{
+					boolean edge=false;
+					//Checks top, bottom, left, and right, if any are false, it works
+					while(true)
+					{
+						//While statement weird way to prevent nested if else statements
+						if(particle.localInMap(x-1, y))
+						{
+							if(!particle.getLocalValue(x-1, y))
+							{
+								edge=true;
+								break;
+							}
+						}
+						else
+						{
+							edge=true;
+							break;
+						}
+						if(particle.localInMap(x+1, y))
+						{
+							if(!particle.getLocalValue(x+1, y))
+							{
+								edge=true;
+								break;
+							}
+						}
+						else
+						{
+							edge=true;
+							break;
+						}
+						if(particle.localInMap(x, y-1))
+						{
+							if(!particle.getLocalValue(x, y-1))
+							{
+								edge=true;
+								break;
+							}
+						}
+						else
+						{
+							edge=true;
+							break;
+						}
+						if(particle.localInMap(x, y+1))
+						{
+							if(!particle.getLocalValue(x, y+1))
+							{
+								edge=true;
+								break;
+							}
+						}
+						else
+						{
+							edge=true;
+							break;
+						}
+						break;
+					}
+					if(edge)
+					{
+						contourParticle.setLocalValue(x, y, true);
+					}
+				}
+			}
+		}
+		particle=contourParticle;
+		//Create an arraylist of the outer ring
+		ArrayList<Point> contour=new ArrayList<Point>();
+		//Find First point
+		for(int x=0;x<particle.getWidth();x++)
+		{
+			for(int y=0;y<particle.getHeight();y++)
+			{
+				if(particle.getLocalValue(x, y))
+				{
+					contour.add(new Point(x,y));
+				}
+			}
+		}
+		//Search for a point closest to this point
+		Point last=contour.get(0);
+		while(true)
+		{
+			Point closest=null;
+			double distance=9999;
+			for(int x=0;x<particle.getWidth();x++)
+			{
+				for(int y=0;y<particle.getHeight();y++)
+				{
+					if(particle.getLocalValue(x, y))
+					{
+						boolean inArray=false;
+						for(Point point:contour)
+						{
+							if(point.equals(new Point(x,y)))
+							{
+								inArray=true;
+								break;
+							}
+						}
+						if(!inArray)
+						{
+							double current;
+							if((current=distance(new Point(x,y),last))<distance)
+							{
+								distance=current;
+								closest=new Point(x,y);
+							}
+						}
+					}
+				}
+			}
+			if(closest==null)
+			{
+				break;
+			}
+			contour.add(closest);
+			last=closest;
+		}
+		return contour;
+	}
+	private double angle(Point pt0, Point pt1, Point pt2)
+	{
+		//Finds the angle between rays pt0 -> pt1 and pt0 -> pt2
+		double a=distance(pt0,pt1);
+		double b=distance(pt0,pt2);
+		double c=distance(pt1,pt2);
+		if(a==0)
+		{
+			a=1e-10;
+		}
+		if(b==0)
+		{
+			b=1e-10;
+		}
+		return Math.acos((Math.pow(c, 2)-(Math.pow(a, 2)+Math.pow(b, 2)))/(-2.0*a*b));
+		
+	}
 	private int equivalentRectangle(Particle particle, int index)
 	{
 		int score = 0;
-		Point upperLeft = new Point();
-		Point lowerLeft = new Point();
-		Point upperRight = new Point();
-		Point lowerRight = new Point();
-		double ulrecord = 0;// Absurd numbers ez to beat
-		double llrecord = 0;
-		double urrecord = 0;
-		double lrrecord = 0;
-		Point center = COMasses[index];
-		double distance;
-		// Scan Quadrant I
-		for (int i = (int) (particle.getWidth() / 2.0); i < particle.getWidth(); i++)
+		double width=0;
+		double height=0;
+		ArrayList<Point> contour=toContour(particle);
+		ArrayList<Point> corners=new ArrayList<Point>();
+		for(int i=0;i<contour.size();i++)
 		{
-			for (int j = 0; j < particle.getHeight() / 2.0; j++)
+			int before=i-difference;
+			int after=i+difference;
+			//Make sure they're in the array
+			if(before<0)
 			{
-				if (particle.getLocalValue(i, j))
+				before=before+contour.size();
+			}
+			if(after>=contour.size())
+			{
+				after=after-contour.size();
+			}
+			if(angle(contour.get(i),contour.get(before),(contour.get(after)))>requiredAngle)
+			{
+				corners.add(contour.get(i));
+			}
+		}
+		//Find points closest to the corners of particle
+		Point[] corner=new Point[4];
+		Point[] fixed = { new Point(particle.getWidth() - 1, 0),
+				new Point(0, 0), new Point(0, particle.getHeight() - 1),
+				new Point(particle.getWidth() - 1, particle.getHeight() - 1) };
+		Double[] record={9999.0,9999.0,9999.0,9999.0};
+		//Goes in quadrant order
+		for(Point point: corners)
+		{
+			for(int i=0;i<corner.length;i++)
+			{
+				double distance;
+				if((distance=distance(point,fixed[i]))<record[i])
 				{
-					distance = distance(new Point(i, j), center);
-					if (distance > urrecord)
-					{
-						urrecord = distance;
-						upperRight = new Point(i, j);
-					}
+					record[i]=distance;
+					corner[i]=point;
 				}
 			}
 		}
-		// Scan Quadrant II
-		for (int x = 0; x < particle.getWidth() / 2.0; x++)
-		{
-			for (int y = 0; y < particle.getHeight() / 2.0; y++)
-			{
-				if (particle.getLocalValue(x, y))
-				{
-					distance = distance(new Point(x, y), center);
-					if (distance > ulrecord)
-					{
-						ulrecord = distance;
-						upperLeft = new Point(x, y);
-					}
-				}
-			}
-		}
-		// Scan Quadrant III
-		for (int x = 0; x < particle.getWidth() / 2.0; x++)
-		{
-			for (int y = (int) (particle.getHeight() / 2.0); y < particle
-					.getHeight(); y++)
-			{
-				if (particle.getLocalValue(x, y))
-				{
-					distance = distance(new Point(x, y), center);
-					if (distance > llrecord)
-					{
-						llrecord = distance;
-						lowerLeft = new Point(x, y);
-					}
-				}
-			}
-		}
-		// Scan Quadrant IV
-		for (int x = particle.getWidth() / 2; x < particle.getWidth(); x++)
-		{
-			for (int y = particle.getHeight() / 2; y < particle.getHeight(); y++)
-			{
-				if (particle.getLocalValue(x, y))
-				{
-					distance = distance(new Point(x, y), center);
-					if (distance > lrrecord)
-					{
-						lrrecord = distance;
-						lowerRight = new Point(x, y);
-					}
-				}
-			}
-		}
-		// Finds the most Invalid point
-		short angleDiff = 0;
-		double furthestDistance = distance(
-				new Point(particle.getWidth() - 1, 0), upperRight);
-		;
-		// Finds furthest point from corner
-		distance = distance(new Point(0, 0), upperLeft);
-		if (distance > furthestDistance)
-		{
-			angleDiff = 1;
-			furthestDistance = distance;
-		}
-		distance = distance(new Point(0, particle.getHeight() - 1), lowerLeft);
-		if (distance > furthestDistance)
-		{
-			angleDiff = 2;
-			furthestDistance = distance;
-		}
-		distance = distance(
-				new Point(particle.getWidth() - 1, particle.getHeight() - 1),
-				lowerRight);
-		if (distance > furthestDistance)
-		{
-			angleDiff = 3;
-		}
-		double width = 0;
-		double height = 0;
-		Point location;
-		Point bottom;
-		double adjacent;
-		switch (angleDiff) {
-			case 0:
-				width = distance(lowerLeft, lowerRight);
-				height = distance(lowerLeft, upperLeft);
-				bottom = new Point(
-						(int) ((lowerLeft.getX() + lowerRight.getX()) / 2.0),
-						(int) ((lowerLeft.getY() + lowerRight.getY()) / 2.0));
-				location = new Point(
-						(int) ((upperLeft.getX() - lowerLeft.getX()) + bottom
-								.getX()),
-						(int) (bottom.getY() + upperLeft.getY() - lowerLeft
-								.getY()));
-				targetLocations[index] = location;
-				/*
-				 * location=COMasses[index]; trueCenter=new
-				 * Point((int)(Math.abs(upperLeft
-				 * .getX()+lowerRight.getX())/2.0),(int
-				 * )(Math.abs(upperLeft.getY()+lowerRight.getY())/2.0));
-				 * angles[index
-				 * ]=Math.atan(((location.getX()-trueCenter.getX())/(trueCenter
-				 * .getY()-location.getY())));
-				 */
-				adjacent = lowerRight.getX() - lowerLeft.getX();
-				if (adjacent == 0)
-				{
-					adjacent = 0.000000001;
-				}
-				angles[index] = Math
-						.atan((lowerRight.getY() - lowerLeft.getY())
-								/ (adjacent));
-				break;
-			case 1:
-				width = distance(lowerLeft, lowerRight);
-				height = distance(lowerRight, upperRight);
-				bottom = new Point(
-						(int) ((lowerLeft.getX() + lowerRight.getX()) / 2.0),
-						(int) ((lowerLeft.getY() + lowerRight.getY()) / 2.0));
-				location = new Point(
-						(int) ((upperRight.getX() - lowerRight.getX()) + bottom
-								.getX()),
-						(int) (bottom.getY() + upperRight.getY() - lowerRight
-								.getY()));
-				targetLocations[index] = location;
-				/*
-				 * location=COMasses[index]; trueCenter=new
-				 * Point((int)(Math.abs(upperRight
-				 * .getX()+lowerLeft.getX())/2.0),(int
-				 * )(Math.abs(upperRight.getY()+lowerLeft.getY())/2.0));
-				 * angles[index
-				 * ]=Math.atan(((location.getX()-trueCenter.getX())/(trueCenter
-				 * .getY()-location.getY())));
-				 */
-				adjacent = lowerRight.getX() - lowerLeft.getX();
-				if (adjacent == 0)
-				{
-					adjacent = 0.000000001;
-				}
-				angles[index] = Math
-						.atan((lowerRight.getY() - lowerLeft.getY())
-								/ (adjacent));
-				break;
-			case 2:
-				width = distance(upperLeft, upperRight);
-				height = distance(upperRight, lowerRight);
-				location = new Point(
-						(int) ((upperLeft.getX() + upperRight.getX()) / 2.0),
-						(int) ((upperLeft.getY() + upperRight.getY()) / 2.0));
-				targetLocations[index] = location;
-				/*
-				 * location=COMasses[index]; trueCenter=new
-				 * Point((int)(Math.abs(upperLeft
-				 * .getX()+lowerRight.getX())/2.0),(int
-				 * )(Math.abs(upperLeft.getY()+lowerRight.getY())/2.0));
-				 * angles[index
-				 * ]=Math.atan(((location.getX()-trueCenter.getX())/(trueCenter
-				 * .getY()-location.getY())));
-				 */
-				adjacent = upperRight.getX() - upperLeft.getX();
-				if (adjacent == 0)
-				{
-					adjacent = 0.000000001;
-				}
-				angles[index] = Math
-						.atan((upperRight.getY() - upperLeft.getY())
-								/ (adjacent));
-				break;
-			case 3:
-				width = distance(upperLeft, upperRight);
-				height = distance(lowerLeft, upperLeft);
-				location = new Point(
-						(int) ((upperLeft.getX() + upperRight.getX()) / 2.0),
-						(int) ((upperLeft.getY() + upperRight.getY()) / 2.0));
-				targetLocations[index] = location;
-				/*
-				 * location=COMasses[index]; trueCenter=new
-				 * Point((int)(Math.abs(upperRight
-				 * .getX()+lowerLeft.getX())/2.0),(int
-				 * )(Math.abs(upperRight.getY()+lowerLeft.getY())/2.0));
-				 * angles[index
-				 * ]=Math.atan(((location.getX()-trueCenter.getX())/(trueCenter
-				 * .getY()-location.getY())));
-				 */
-				adjacent = upperRight.getX() - upperLeft.getX();
-				if (adjacent == 0)
-				{
-					adjacent = 0.000000001;
-				}
-				angles[index] = Math
-						.atan((upperRight.getY() - upperLeft.getY())
-								/ (adjacent));
-				break;
-		}
+		width=(distance(corner[0],corner[1])+distance(corner[2],corner[3]))/2.0;
+		height=(distance(corner[0],corner[3])+distance(corner[1],corner[2]))/2.0;
+		targetLocations[index]=new Point((corner[0].x+corner[1].x)/2,(corner[0].y+corner[1].y)/2);
 		tWidth[index] = (int) width;
 		tHeight[index] = (int) height;
 		double ratio = (width * 1.0) / (height * 1.0) * 1.0;
