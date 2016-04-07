@@ -27,6 +27,7 @@ public class PictureTester extends JFrame implements Runnable
 	private Vision v;
 	private boolean[][] map;
 	private Point target=new Point(-1,-1);
+	private Particle particle=null;
 	public PictureTester(BufferedImage image)
 	{
 		super();
@@ -54,6 +55,10 @@ public class PictureTester extends JFrame implements Runnable
 				target[0]=(target[0]+1)*(image.getWidth()/2.0);
 				target[1]=-1.0*(target[1]-1)*(image.getHeight()/2.0);
 				this.target=new Point((int)target[0],(int)target[1]);
+				if(v.bestParticle!=null)
+				{
+					particle=v.bestParticle;
+				}
 			}
 			keyboard.updateKeys();
 			if(keyboard.keyOnce(right)||keyboard.keyOnce(d))
@@ -83,6 +88,15 @@ public class PictureTester extends JFrame implements Runnable
 						g.fillRect(j, i, 1, 1);
 					}
 				}
+			}
+		}
+		if(particle!=null)
+		{
+			g.setColor(Color.RED);
+			for(Point corner: particle.corners)
+			{
+				//g.fillRect(corner.x+particle.x, corner.y+particle.y, 2, 2);
+				g.drawLine(target.x, target.y,corner.x+particle.x, corner.y+particle.y);
 			}
 		}
 		g.setColor(Color.CYAN);

@@ -39,7 +39,7 @@ public class PictureController implements Runnable
 			504, 505, 506, 507, 508, 509, 510, 511, 512, 513, 514, 515, 516,
 			517, 518, 519, 520, 521, 522, 523, 524, 525, 526, 527, 528, 529,
 			530, 531, 532, 533, 534, 535, 536, 537, 538, 539, 540, 541, 542 };
-	
+	boolean newImage=true;
 	public static void main(String[] args)
 	{
 		PictureController controller=new PictureController();
@@ -47,7 +47,7 @@ public class PictureController implements Runnable
 	}
 	public void control()
 	{
-		PictureTester frame=new PictureTester(getImage(0));
+		PictureTester frame=new PictureTester(getImage(images[imageNumber]));
 		Thread t=new Thread(this);
 		t.start();
 		while(true)
@@ -64,6 +64,12 @@ public class PictureController implements Runnable
 				{
 					imageNumber=imageNumber+images.length;
 				}
+				System.out.println("Picture: "+imageNumber);
+				frame.setImage(getImage(images[imageNumber]));
+			}
+			if(newImage)
+			{
+				newImage=false;
 				frame.setImage(getImage(images[imageNumber]));
 			}
 			try {
@@ -104,6 +110,7 @@ public class PictureController implements Runnable
 				if(newImage>=0&&newImage<images.length)
 				{
 					imageNumber=newImage;
+					this.newImage=true;
 				}
 			}
 			catch(NumberFormatException e)

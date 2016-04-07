@@ -1,3 +1,5 @@
+import java.awt.Point;
+
 
 
 public class Particle 
@@ -6,6 +8,7 @@ public class Particle
 	public int y;
 	public boolean[][] map;
 	public int count=1;
+	public Point[] corners=new Point[4];
 	public Particle(int x, int y, boolean[][] map)
 	{
 		this.x=x;

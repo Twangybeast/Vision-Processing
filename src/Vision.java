@@ -42,8 +42,11 @@ public class Vision
 	final double totalPercent = 0.0006510416666666666;
 	int minimumAlive = 200;// Minimum alive cells in particle to be considered particle. This is default value. Real value based on totalPercent.		
 	final double maxRatio=3.5;//Highest simple ratio number can have to be valid
-	final int largeMinAlive=500;//Higher minimum alive cell count assuming there is one that satisfies this one
+	//Arrays of Thresholds, if larger particle, then proceed to next one
+	int[] largeMinAlive={300,500,700,1000,1500};
+	final double[] largePercent={largeMinAlive[0]/(640.0*480.0),largeMinAlive[1]/(640.0*480.0),largeMinAlive[2]/(640.0*480.0),largeMinAlive[3]/(640.0*480.0),largeMinAlive[4]/(640.0*480.0)};
 	final int furthestDistance = 400;
+	int largeParticleIndex=-1;
 	//----------------------XY PROFILE---------------------------------------------------
 	//DON'T LOOK HERE
 	//Data found experimentally, good luck have fun
@@ -190,17 +193,23 @@ public class Vision
 	final double dev=0.03715117993112262*5.0;
 	final double ideal=0.27858733495702565;
 	//-------------------------EQUIVALENT RECTANGLE------------------
-	final int difference=4;
-	final double requiredAngle=Math.toRadians(60);//Minimum angle for corner
+	final double difference=1.0/20.0;
+	final double requiredAngle=	Math.toRadians(90);//Angle for corner
+	final double deviation=		Math.toRadians(30);//Deviation acceptable for corner
+	final double maxDistance=10;//Minimum distance for boundaries between top/right/bottom/left
 	//---------------------GLOBAL VARIABLE 
 	int[] tHeight;// Height based on equivalent rectangle
 	double[] angles;
 	Point[] targetLocations;
 	Point[] COMasses;
-	int largestCount=0;
+	//------------------------DEBUGGING VARIABLES--------------------------
+	public Particle bestParticle=null;
 	public double[] process(boolean[][] map)
 	{
-		minimumAlive = (int) (totalPercent * (map.length * map[0].length));
+		for(int i=0;i<largePercent.length;i++)
+		{
+			largeMinAlive[i]=(int) (largePercent[i]*map.length*map[0].length);
+		}
 		double[] toReturn = new double[4];
 		// Returns center of mass, x returns 2 when none detected
 		// toReturn[0] x position of target, in coordinate system of -1.0 to 1.0 left to right
@@ -208,17 +217,14 @@ public class Vision
 		// toReturn[2] distance to target, units should be inches
 		// toReturn[3] angle of the target, in radians
 		ArrayList<Particle> particles = null;
-		long start = System.currentTimeMillis();
 		particles = findParticles(map);
-		System.out.println("Particle Finding Time: "
-				+ (System.currentTimeMillis() - start));
-		System.out.println("Particles Found: " + particles.size());
 		if (particles.size() == 0)// No targets detected
 		{
 			toReturn[0] = 2.0;
 			toReturn[1] = 2.0;
 			toReturn[2] = 0.0;
 			toReturn[3] = 100.0;
+			bestParticle=null;
 			return toReturn;
 		}
 		ArrayList<int[]> score = new ArrayList<int[]>();
@@ -241,8 +247,18 @@ public class Vision
 			score.add(Score);
 		}
 		boolean impossibleTarget = true;
+		int impossCount=0;
 		while (impossibleTarget)
 		{
+			if(impossCount>=particles.size())
+			{
+				toReturn[0] = 2.0;
+				toReturn[1] = 2.0;
+				toReturn[2] = 0.0;
+				toReturn[3] = 100.0;
+				bestParticle=null;
+				return toReturn;
+			}
 			int recordIndex = 0;
 			int record = 99999;// Absurd number that is easy to beat
 			for (int i = 0; i < score.size(); i++)
@@ -280,16 +296,19 @@ public class Vision
 				toReturn[1] = -1.0 * ((toReturn[1]) - (map.length / 2.0))
 						/ (map.length / 2.0);
 				toReturn[3] = angles[recordIndex];
+				bestParticle=particle;
 			} 
 			else
 			{
 				int[] badScore = { 200, 200, 200, 200, 800 };
 				score.set(recordIndex, badScore);
+				impossCount++;
 			}
 		}
 		return toReturn;
 	}
 
+	@SuppressWarnings("unused")
 	private ArrayList<Point> toContour(Particle particle)
 	{
 		Particle contourParticle=new Particle((int)particle.getX(),(int)particle.getY(),new boolean[particle.map.length][particle.map[0].length]);
@@ -369,6 +388,7 @@ public class Vision
 		//Create an arraylist of the outer ring
 		ArrayList<Point> contour=new ArrayList<Point>();
 		//Find First point
+		Cycle:
 		for(int x=0;x<particle.getWidth();x++)
 		{
 			for(int y=0;y<particle.getHeight();y++)
@@ -376,6 +396,7 @@ public class Vision
 				if(particle.getLocalValue(x, y))
 				{
 					contour.add(new Point(x,y));
+					break Cycle;
 				}
 			}
 		}
@@ -384,7 +405,7 @@ public class Vision
 		while(true)
 		{
 			Point closest=null;
-			double distance=9999;
+			double distance=5;
 			for(int x=0;x<particle.getWidth();x++)
 			{
 				for(int y=0;y<particle.getHeight();y++)
@@ -443,12 +464,321 @@ public class Vision
 		int score = 0;
 		double width=0;
 		double height=0;
-		ArrayList<Point> contour=toContour(particle);
+		Point[] corner=new Point[4];
+		ArrayList<Point> top=new ArrayList<Point>();
+		ArrayList<Point> bottom=new ArrayList<Point>();
+		ArrayList<Point> left=new ArrayList<Point>();
+		ArrayList<Point> right=new ArrayList<Point>();
+		for(int i=0;i<particle.getWidth();i++)
+		{
+			//Top Section
+			for(int j=0;j<particle.getHeight();j++)
+			{
+				if(particle.getLocalValue(i, j))
+				{
+					top.add(new Point(i,j));
+					break;
+				}
+			}
+			//Bottom Section
+			for(int j=particle.getHeight()-1;j>=0;j--)
+			{
+				if(particle.getLocalValue(i, j))
+				{
+					bottom.add(new Point(i,j));
+					break;
+				}
+			}
+		}
+		for(int i=0;i<particle.getHeight();i++)
+		{
+			//Left Section
+			for(int j=0;j<particle.getWidth();j++)
+			{
+				if(particle.getLocalValue(j,i))
+				{
+					left.add(new Point(j,i));
+					break;
+				}
+			}
+			//Right Section
+			for(int j=particle.getWidth()-1;j>=0;j--)
+			{
+				if(particle.getLocalValue(j,i))
+				{
+					right.add(new Point(j,i));
+					break;
+				}
+			}
+		}
+		//"Creative" code, needs fixing
+		/*
+		//NEED TO MAKE A METHOD THAT "FLATTENS" 
+		for(int i=0;i<left.size();i++)
+		{
+			if((int)left.get(i).getX()==1)
+			{
+				left.set(i,new Point(0,i));
+			}
+		}
+		for(int i=0;i<right.size();i++)
+		{
+			if((int)right.get(i).getX()==particle.getWidth()-2)
+			{
+				right.set(i,new Point(particle.getWidth()-1,i));
+			}
+		}
+		for(int i=0;i<top.size();i++)
+		{
+			if((int)top.get(i).getY()==1)
+			{
+				top.set(i,new Point(i,0));
+			}
+		}
+		for(int i=0;i<bottom.size();i++)
+		{
+			if((int)bottom.get(i).getY()==particle.getHeight()-2)
+			{
+				bottom.set(i,new Point(i,particle.getHeight()-1));
+			}
+		}
+		Point marker;
+		boolean foundMarker;
+		boolean even;
+		int markerX;
+		int markerY;
+		ArrayList<Point> coin=new ArrayList<Point>();//Coin = Coincidence, calculates coincidences of various things
+		//Bottom Points, explanation of code under top points, marker used to find orientation of rectangle
+		markerX=bottom.size()/2;
+		markerY=(int) bottom.get(markerX).getY();
+		try
+		{
+			while((int)bottom.get(markerX-1).getY()==markerY)
+			{
+				markerX--;
+			}
+		}
+		catch (ArrayIndexOutOfBoundsException e)
+		{
+			markerX=bottom.size()/2;
+		}
+		marker=bottom.get(markerX);
+		foundMarker=false;
+		coin=new ArrayList<Point>();
+		for(int i=0;i<left.size();i++)
+		{
+			Point point=left.get(i);
+			for(Point pointCompare: bottom)
+			{
+				if(point.equals(pointCompare))
+				{
+					coin.add(point);
+					if(!foundMarker)
+					{
+						if(point.equals(marker))
+						{
+							foundMarker=true;
+						}
+					}
+					break;
+				}
+			}
+		}
+		if(!coin.isEmpty())
+		{
+			if(foundMarker)
+			{
+				corner[2]=coin.get(0);
+			}
+			else
+			{
+				corner[2]=coin.get(coin.size()-1);
+			}
+		}
+		corner[2].y=(corner[2].y*-1)+particle.getHeight();
+		even=foundMarker;
+		markerX=bottom.size()/2;
+		markerY=(int) bottom.get(markerX).getY();
+		try
+		{
+			while((int)bottom.get(markerX+1).getY()==markerY)
+			{
+				markerX++;
+			}
+		}
+		catch (ArrayIndexOutOfBoundsException e)
+		{
+			markerX=bottom.size()/2;
+		}
+		marker=bottom.get(markerX);
+		marker=bottom.get(bottom.size()/2);
+		foundMarker=false;
+		coin=new ArrayList<Point>();
+		for(int i=0;i<right.size();i++)
+		{
+			Point point=right.get(i);
+			for(Point pointCompare: bottom)
+			{
+				if(point.equals(pointCompare))
+				{
+					coin.add(point);
+					if(!foundMarker)
+					{
+						if(point.equals(marker))
+						{
+							foundMarker=true;
+						}
+					}
+					break;
+				}
+			}
+		}
+		if(!coin.isEmpty())
+		{
+			if(foundMarker)
+			{
+				corner[3]=coin.get(0);
+			}
+			else
+			{
+				corner[3]=coin.get(coin.size()-1);
+			}
+		}
+		corner[3].y=(corner[3].y*-1)+particle.getHeight();
+		even=!(even||foundMarker);
+		//Top Points
+		//Places a market half way on top, if it contains, then start from bottom using coincidence, else start from top
+		coin=new ArrayList<Point>();
+		for(int i=0;i<left.size();i++)
+		{
+			Point point=left.get(i);
+			for(Point pointCompare: top)
+			{
+				if(point.equals(pointCompare))
+				{
+					coin.add(point);
+					break;
+				}
+			}
+		}
+		if(!coin.isEmpty())
+		{
+			if(foundMarker)
+			{
+				//go from bottom
+				corner[1]=coin.get(coin.size()-1);
+			}
+			else
+			{
+				//start from top
+				corner[1]=coin.get(0);
+			}
+		}
+		//Begin finding other quadrant of top, I. Need to redo foundMarker because of 3 scenarios, same algorithm
+		coin=new ArrayList<Point>();
+		for(int i=0;i<right.size();i++)
+		{
+			Point point=right.get(i);
+			for(Point pointCompare: top)
+			{
+				if(point.equals(pointCompare))
+				{
+					coin.add(point);
+					break;
+				}
+			}
+		}
+		if(!coin.isEmpty())
+		{
+			if(!foundMarker)
+			{
+				corner[0]=coin.get(coin.size()-1);
+			}
+			else
+			{
+				corner[0]=coin.get(0);
+			}
+		}
+		*/
+		//Commented Out code For Experimental Idea
+		///*
+		ArrayList<Point> contour=top;
 		ArrayList<Point> corners=new ArrayList<Point>();
+		ArrayList<Integer> cornerIndex=new ArrayList<Integer>();
+		//Merge all sides into one arraylist
+		for(int i=0;i<right.size();i++)
+		{
+			boolean alreadyFound=false;
+			if(distance(contour.get(contour.size()-1),right.get(i))>maxDistance)
+			{
+				alreadyFound=true;
+			}
+			else
+			{
+				Point point=top.get(right.get(i).x);
+				if(point.equals(right.get(i)))
+				{
+					alreadyFound=true;
+				}
+			}
+			if(!alreadyFound)
+			{
+				contour.add(right.get(i));
+			}
+		}
+		for(int i=bottom.size()-1;i>=0;i--)
+		{
+			boolean alreadyFound=false;
+			if(distance(contour.get(contour.size()-1),bottom.get(i))>maxDistance)
+			{
+				alreadyFound=true;
+			}
+			else
+			{
+				Point point=right.get(bottom.get(i).y);
+				if(point.equals(bottom.get(i)))
+				{
+					alreadyFound=true;
+				}
+			}
+			if(!alreadyFound)
+			{
+				contour.add(bottom.get(i));
+			}
+		}
+		for(int i=left.size()-1;i>=0;i--)
+		{
+			boolean alreadyFound=false;
+			if(distance(contour.get(contour.size()-1),left.get(i))>maxDistance)
+			{
+				alreadyFound=true;
+			}
+			else
+			{
+				Point point=bottom.get(left.get(i).x);
+				if(point.equals(left.get(i)))
+				{
+					alreadyFound=true;
+				}
+				else
+				{
+					point=top.get(left.get(i).x);
+					if(point.equals(left.get(i)))
+					{
+						alreadyFound=true;
+					}
+				}
+			}
+			if(!alreadyFound)
+			{
+				contour.add(left.get(i));
+			}
+		}
 		for(int i=0;i<contour.size();i++)
 		{
-			int before=i-difference;
-			int after=i+difference;
+			int diff=(int) (difference*particle.getWidth());
+			int before=(int) (i-diff);
+			int after=(int) (i+diff);
 			//Make sure they're in the array
 			if(before<0)
 			{
@@ -458,32 +788,112 @@ public class Vision
 			{
 				after=after-contour.size();
 			}
-			if(angle(contour.get(i),contour.get(before),(contour.get(after)))>requiredAngle)
+			double angle;
+			if((angle=angle(contour.get(i),contour.get(before),(contour.get(after))))>requiredAngle-deviation&&angle<requiredAngle+deviation)
 			{
-				corners.add(contour.get(i));
+				cornerIndex.add(i);
 			}
 		}
+		//Magical analyzer, consecutive corners will simply be shortened to the average
+		for(int i=0;i<cornerIndex.size();)
+		{
+			boolean looped=false;
+			ArrayList<Integer> series=new ArrayList<Integer>();
+			int j=1;
+			if(i+j>=cornerIndex.size())
+			{
+				j=j-cornerIndex.size();
+			}
+			while(cornerIndex.get(j+i)==j+cornerIndex.get(i))
+			{
+				series.add((j+cornerIndex.get(i)));
+				j++;
+				if(j+i>=cornerIndex.size())
+				{
+					if(looped)
+					{
+						break;
+					}
+					j=j-cornerIndex.size();
+					looped=true;
+				}
+			}
+			if(i==0)
+			{
+				looped=false;
+				j=-1;
+				if(j+i<0)
+				{
+					j=j+cornerIndex.size();
+				}
+				while(cornerIndex.get(j+i)==j+cornerIndex.get(i))
+				{
+					series.add((j+cornerIndex.get(i)));
+					j--;
+					if(j+i<0)
+					{
+						if(looped)
+						{
+							break;
+						}
+						j=j+cornerIndex.size();
+						looped=true;
+					}
+				}
+			}
+			int mean=cornerIndex.get(i);
+			int count=1;
+			for(int Index: series)
+			{
+				mean=mean+Index;
+				count++;
+			}
+			mean=mean/count;
+			corners.add(contour.get(mean));
+			i=i+count;
+		}
 		//Find points closest to the corners of particle
-		Point[] corner=new Point[4];
-		Point[] fixed = { new Point(particle.getWidth() - 1, 0),
-				new Point(0, 0), new Point(0, particle.getHeight() - 1),
-				new Point(particle.getWidth() - 1, particle.getHeight() - 1) };
+		int[] fixed = {particle.x,0,particle.x,0};
 		Double[] record={9999.0,9999.0,9999.0,9999.0};
 		//Goes in quadrant order
 		for(Point point: corners)
 		{
-			for(int i=0;i<corner.length;i++)
+			for(int i=0;i<2;i++)
 			{
-				double distance;
-				if((distance=distance(point,fixed[i]))<record[i])
+				int quadrant=i;
+				if(point.getY()>particle.getHeight()/2)
 				{
-					record[i]=distance;
-					corner[i]=point;
+					quadrant=quadrant+2;
+				}
+				double distance;
+				if((distance=Math.abs(point.getX()-fixed[quadrant]))<record[quadrant])
+				{
+					record[quadrant]=distance;
+					corner[quadrant]=point;
 				}
 			}
 		}
+		//*/
+		//Finishing code, always keep
+		if(corner[0]==null)
+		{
+			corner[0]=new Point(particle.getWidth(),0);
+		}
+		if(corner[1]==null)
+		{
+			corner[1]=new Point(0,0);
+		}
+		if(corner[2]==null)
+		{
+			corner[2]=new Point(0, particle.getHeight());
+		}
+		if(corner[3]==null)
+		{
+			corner[3]=new Point(particle.getWidth(),particle.getHeight());
+		}
 		width=(distance(corner[0],corner[1])+distance(corner[2],corner[3]))/2.0;
 		height=(distance(corner[0],corner[3])+distance(corner[1],corner[2]))/2.0;
+		particle.corners=corner;
 		targetLocations[index]=new Point((corner[0].x+corner[1].x)/2,(corner[0].y+corner[1].y)/2);
 		tWidth[index] = (int) width;
 		tHeight[index] = (int) height;
@@ -602,6 +1012,7 @@ public class Vision
 
 	private ArrayList<Particle> findParticles(boolean[][] map)// Generates rectangles for every point
 	{
+		largeParticleIndex=-1;
 		ArrayList<Particle> toReturn = new ArrayList<Particle>();
 		ArrayList<Particle> smallParticles = new ArrayList<Particle>();
 		int iStart = 0, jStart = 0, iMax = 0, jMax = 0;
@@ -817,9 +1228,19 @@ public class Vision
 							{
 								if(particle.getWidth()/particle.getHeight()<maxRatio)
 								{
-									if(particle.count>largestCount)
+									for(int k=largeParticleIndex;k<largeMinAlive.length;k++)
 									{
-										largestCount=particle.count;
+										if(k>=0)
+										{
+											if(particle.count>largeMinAlive[k])
+											{
+												largeParticleIndex=k;
+											}
+											else
+											{
+												break;
+											}
+										}
 									}
 									toReturn.add(particle);
 								}
@@ -829,13 +1250,12 @@ public class Vision
 				}
 			}
 		}
-		System.out.println("Small Particles Size: " + smallParticles.size());
-		if(largestCount>largeMinAlive)
+		if(largeParticleIndex>-1)
 		{
 			ArrayList<Particle> toRemove=new ArrayList<Particle>();
 			for(Particle particle: toReturn)
 			{
-				if(particle.count<largeMinAlive)
+				if(particle.count<largeMinAlive[largeParticleIndex])
 				{
 					toRemove.add(particle);
 				}
