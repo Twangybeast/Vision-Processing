@@ -3,13 +3,16 @@ import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.Point;
 import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
 import java.awt.image.*;
 
 import javax.swing.*;
 
 public class PictureTester extends JFrame implements Runnable
 {
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -6265417222272758163L;
 	//Size of Target Marker
 	final int radius=4;
 	//Controls
@@ -39,13 +42,13 @@ public class PictureTester extends JFrame implements Runnable
 		setVisible(true);
 		t.start();
 		this.inset=getInsets();
-		System.out.println("Left: "+inset.left);
-		System.out.println("Top: "+inset.top);
 	}
 	private void mainCycle()
 	{
+		long time;
 		while(true)
 		{
+			time=System.currentTimeMillis();
 			if(processImage)
 			{
 				processImage=false;
@@ -70,6 +73,19 @@ public class PictureTester extends JFrame implements Runnable
 				imageQ--;
 			}
 			repaint();
+			time=50-(System.currentTimeMillis()-time);
+			if(time<0)
+			{
+				time=0;
+			}
+			try
+			{
+				Thread.sleep(time);
+			} catch (InterruptedException e)
+			{
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 	}
 	public void paint(Graphics frameG)

@@ -9,11 +9,50 @@ public class Particle
 	public boolean[][] map;
 	public int count=1;
 	public Point[] corners=new Point[4];
+	private Point target=null;
+	private int tWidth=0;
+	private int tHeight=0;
 	public Particle(int x, int y, boolean[][] map)
 	{
 		this.x=x;
 		this.y=y;
 		this.map=map;
+	}
+	public int getTWidth()
+	{
+		if(tWidth==0)
+		{
+			tWidth=getWidth();
+		}
+		return tWidth;
+	}
+	public void setTWidth(int w)
+	{
+		tWidth=w;
+	}
+	public int getTHeight()
+	{
+		if(tHeight==0)
+		{
+			tHeight=getHeight();
+		}
+		return tHeight;
+	}
+	public void setTHeight(int h)
+	{
+		tHeight=h;
+	}
+	public Point getTarget()
+	{
+		if(target==null)
+		{
+			target=new Point(getWidth()/2,getHeight()/2);
+		}
+		return target;
+	}
+	public void setTarget(Point point)
+	{
+		target=point;
 	}
 	public double getX()
 	{
@@ -66,6 +105,17 @@ public class Particle
 	public boolean getLocalValue(int x, int y)
 	{
 		return map[y][x];
+	}
+	public boolean localValue(int x,int y)
+	{
+		if(localInMap(x,y))
+		{
+			return getLocalValue(x,y);
+		}
+		else
+		{
+			return false;
+		}
 	}
 	public void setLocalValue(int x, int y, boolean value)
 	{

@@ -8,7 +8,7 @@ import javax.imageio.ImageIO;
 
 public class PictureController implements Runnable
 {
-	final static String PATH="C:\\Users\\Twangybeast\\Downloads\\RealFullField\\";
+	final static String PATH="C:\\Users\\"+System.getProperty("user.name")+"\\Downloads\\RealFullField\\";
 	int imageNumber=0;
 	int[] images={ 0, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15,
 			16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
@@ -73,7 +73,7 @@ public class PictureController implements Runnable
 				frame.setImage(getImage(images[imageNumber]));
 			}
 			try {
-				Thread.sleep(50);
+				Thread.sleep(75);
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -84,6 +84,18 @@ public class PictureController implements Runnable
 	{
 		BufferedImage image=null;
 		File file=new File(PATH+imageNumber+".jpg");
+		if(!file.exists())
+		{
+			System.out.println("Images not found. Attempting to download...");
+			try
+			{
+				DownloadImages.download(PATH);
+			} catch (IOException e)
+			{
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
 		try
 		{
 			image=ImageIO.read(file);
@@ -111,6 +123,7 @@ public class PictureController implements Runnable
 				{
 					imageNumber=newImage;
 					this.newImage=true;
+					break;
 				}
 			}
 			catch(NumberFormatException e)
@@ -118,6 +131,6 @@ public class PictureController implements Runnable
 				System.out.println("Invalid Input");
 			}
 		}
-		
+		s.close();
 	}
 }

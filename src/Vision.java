@@ -8,7 +8,6 @@ public class Vision
 	/*
 	 * TO DO LIST
 	 * [ ] Switch from HSL to HSV					
-	 * [ ] Improve equivalent rectangles class		
 	 * [ ] Figure out wtf moment of inertia is		
 	 * [ ] Decrease findParticles processing time	
 	 */
@@ -37,6 +36,8 @@ public class Vision
 	final int smax = 255;// This value not used as it is maximum. If changed go to createMap method to add into code
 	final int lmin = 40;
 	final int lmax = 161;
+	final int vmin = 100;
+	final int vmax = 200;
 	// End of lots of variables
 	//--------------------FIND PARTICLES------------------------------------------------------
 	final double totalPercent = 0.0006510416666666666;
@@ -193,9 +194,9 @@ public class Vision
 	final double dev=0.03715117993112262*5.0;
 	final double ideal=0.27858733495702565;
 	//-------------------------EQUIVALENT RECTANGLE------------------
-	final double difference=1.0/20.0;
-	final double requiredAngle=	Math.toRadians(90);//Angle for corner
-	final double deviation=		Math.toRadians(30);//Deviation acceptable for corner
+	final double difference=1.0/30.0;
+	final double angleU=		Math.toRadians(160);//Angle range for corner
+	final double angleL=		Math.toRadians(25);
 	final double maxDistance=10;//Minimum distance for boundaries between top/right/bottom/left
 	//---------------------GLOBAL VARIABLE 
 	int[] tHeight;// Height based on equivalent rectangle
@@ -774,9 +775,9 @@ public class Vision
 				contour.add(left.get(i));
 			}
 		}
+		int diff=(int) (difference*particle.getWidth());
 		for(int i=0;i<contour.size();i++)
 		{
-			int diff=(int) (difference*particle.getWidth());
 			int before=(int) (i-diff);
 			int after=(int) (i+diff);
 			//Make sure they're in the array
@@ -789,7 +790,8 @@ public class Vision
 				after=after-contour.size();
 			}
 			double angle;
-			if((angle=angle(contour.get(i),contour.get(before),(contour.get(after))))>requiredAngle-deviation&&angle<requiredAngle+deviation)
+			angle=angle(contour.get(i),contour.get(before),(contour.get(after)));
+			if(angle>angleL&&angle<angleU)
 			{
 				cornerIndex.add(i);
 			}
@@ -853,7 +855,7 @@ public class Vision
 			i=i+count;
 		}
 		//Find points closest to the corners of particle
-		int[] fixed = {particle.x,0,particle.x,0};
+		Point[] fixed = {new Point(particle.getWidth(),0),new Point(0,0),new Point(0,particle.getHeight()),new Point(particle.getWidth(),particle.getHeight())};
 		Double[] record={9999.0,9999.0,9999.0,9999.0};
 		//Goes in quadrant order
 		for(Point point: corners)
@@ -865,8 +867,8 @@ public class Vision
 				{
 					quadrant=quadrant+2;
 				}
-				double distance;
-				if((distance=Math.abs(point.getX()-fixed[quadrant]))<record[quadrant])
+				double distance=distance(point,fixed[quadrant]);
+				if(distance<record[quadrant])
 				{
 					record[quadrant]=distance;
 					corner[quadrant]=point;
@@ -1350,27 +1352,46 @@ public class Vision
 		}
 	}
 
-	public boolean[][] createMap(BufferedImage picture)// Because x & y are
-														// irrelevant here, do
-														// not bother changing i
-														// & j places in map
-														// array
+	public boolean[][] createMap(BufferedImage picture)// Because x & y are irrelevant here, do not bother changing i & j places in map array
 	{
 		int[][][] image = getArray(picture);
 		boolean[][] map = new boolean[image.length][image[0].length];
-		map = useHsl(map, image, hmin, hmax, smin, lmin, lmax);
-		// LightHSL is experimental idea, more lenient towards pixels surrounded
-		// by alive cells
+		//map = useHsl(map, image, hmin, hmax, smin, lmin, lmax);
+		map=useHsv(map, image, hmin, hmax, smin, smax, vmin, vmax);
+		// LightHSL is experimental idea, more lenient towards pixels surrounded by alive cells
 		// map=lightHsl(map,image, hmin, hmax, smin, lmin, lmax);
 		return map;
 	}
-
-	private boolean[][] useHsl(boolean[][] map, int[][][] image, int hmin,
-			int hmax, int smin, int lmin, int lmax)
+	private boolean[][] useHsv(boolean[][] map, int[][][] image, int hmin, int hmax, int smin, int smax, int vmin, int vmax)
 	{
-		for (int i = 0; i < image.length; i++)// Converts array into map of
-												// reflected light, based on
-												// color threshold
+		//Modified code for useHsl
+		for (int i = 0; i < image.length; i++)
+		{
+			for (int j = 0; j < image[0].length; j++)
+			{
+				boolean valid = false;
+				int red = image[i][j][0];
+				int green = image[i][j][1];
+				int blue = image[i][j][2];
+				int[] hsl = getHSL(red, green, blue);
+				if (hsl[0] >= hmin && hsl[0] <= hmax)
+				{
+					if (hsl[1] >= smin)
+					{
+						if (hsl[2] >= smin && hsl[2] <= smax)
+						{
+							valid = true;
+						}
+					}
+				}
+				map[i][j] = valid;
+			}
+		}
+		return map;
+	}
+	private boolean[][] useHsl(boolean[][] map, int[][][] image, int hmin, int hmax, int smin, int lmin, int lmax)
+	{
+		for (int i = 0; i < image.length; i++)// Converts array into map of reflected light, based on color threshold
 		{
 			for (int j = 0; j < image[0].length; j++)
 			{
@@ -1379,8 +1400,7 @@ public class Vision
 				int red = image[i][j][0];
 				int green = image[i][j][1];
 				int blue = image[i][j][2];
-				// Option 1: Basic Color Scan, compares value of determined
-				// color to predetermined threshold
+				// Option 1: Basic Color Scan, compares value of determined color to predetermined threshold
 				/*
 				 * if(image[i][j][1]>=colorThreshold&&image[i][j][2]>=colorThreshold
 				 * &&
@@ -1388,23 +1408,12 @@ public class Vision
 				 * 1])/2.0-image[i][j][0]>colorDifference) { valid=true; }
 				 */// Option 2: Replicates method from grip tutorial.
 				int[] hsl = getHSL(red, green, blue);
-				// Using values from GRIP tutorial, adjust values as necessary
-				// at top of class
-				if (hsl[0] >= hmin && hsl[0] <= hmax)// Hue. Using nested if
-														// statements for
-														// clarity of reading.
-														// Don't change it.
+				// Adjust values as necessary at top of class
+				if (hsl[0] >= hmin && hsl[0] <= hmax)// Hue. Using nested if statements for clarity of reading. Don't change it.
 				{
-					if (hsl[1] >= smin)// Saturation. Notice that there is no
-										// max value detection as we are only
-										// reading for min. Change as needed.
+					if (hsl[1] >= smin)// Saturation. Notice that there is no max value detection as we are only reading for min. Change as needed.
 					{
-						if (hsl[2] >= lmin && hsl[2] <= lmax)// Luminance. All
-																// the other
-																// ones have
-																// long comments
-																// so I'm typing
-																// here too
+						if (hsl[2] >= lmin && hsl[2] <= lmax)// Luminance. All the other ones have long comments so I'm typing here too
 						{
 							valid = true;
 						}
@@ -1465,5 +1474,58 @@ public class Vision
 			}
 		}
 		return hsl;
+	}
+	public int[] getHSV(int red, int green, int blue)
+	{
+		//Calculations based of this website http://www.rapidtables.com/convert/color/rgb-to-hsv.htm
+		int[] hsv=new int[3];
+		RGB maxType=RGB.RED;
+		double r=(red*1.0)/255.0;
+		double g=(green*1.0)/255.0;
+		double b=(blue*1.0)/255.0;
+		double max=r;
+		if(g>max)
+		{
+			max=g;
+			maxType=RGB.GREEN;
+		}
+		if(b>max)
+		{
+			max=b;
+			maxType=RGB.BLUE;
+		}
+		double min=Math.min(Math.min(r,g), b);
+		double delta=max-min;
+		if(delta==0)
+		{
+			hsv[0]=0;
+		}
+		else
+		{
+			switch(maxType)
+			{
+				case RED:
+					hsv[0]=(int) (30.0*(((g-b)/delta)%6));
+					break;
+				case GREEN:
+					hsv[0]=(int) (30.0*(((b-r)/delta)+2));
+					break;
+				case BLUE:
+					hsv[0]=(int) (30.0*(((r-g)/delta)+4));
+					break;
+				default:
+					assert false;//OOH! Fancy Keywords! But realisticly, if it gets here, the program is messed up. A lot.
+			}
+		}
+		if(max==0)
+		{
+			hsv[1]=0;
+		}
+		else
+		{
+			hsv[1]=(int) (255.0*delta/max);
+		}
+		hsv[2]=(int) (255.0*max);
+		return hsv;
 	}
 }
