@@ -59,6 +59,7 @@ public class DownloadImages
         for(int i=0;i<toDelete.length;i++)
         {
         	delete=new File(path+toDelete[i]);
+        	delete.delete();
         }
 	}
     private static void extractFile(ZipInputStream zipIn, String filePath) throws IOException {

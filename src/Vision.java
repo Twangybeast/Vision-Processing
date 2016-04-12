@@ -6,10 +6,9 @@ import java.util.ArrayList;
 public class Vision
 {
 	/*
-	 * TO DO LIST
-	 * [ ] Switch from HSL to HSV					
+	 * TO DO LIST					
 	 * [ ] Figure out wtf moment of inertia is		
-	 * [ ] Decrease findParticles processing time	
+	 * [ ] Decrease findParticles processing time
 	 */
 	// Because some code was copy pas- *ahem* written by me, arrays that
 	// represent images are weird as they work as map[y][x]
@@ -30,14 +29,24 @@ public class Vision
 	//-------------------HSL------------------------------------------------------------------
 	// Lots of variables to adjust HSL threshold, naming scheme initial of hsl
 	// type and min/max threshold, inclusive; Default GRIP tutorial
-	final int hmin = 63;
-	final int hmax = 96;
-	final int smin = 20;
-	final int smax = 255;// This value not used as it is maximum. If changed go to createMap method to add into code
-	final int lmin = 40;
-	final int lmax = 161;
-	final int vmin = 100;
-	final int vmax = 200;
+	//Default Values
+	public static int HMIN = 63;
+	public static int HMAX = 96;
+	public static int SMIN = 48;
+	public static int SMAX = 255;// This value not used as it is MAXimum. If changed go to createMap method to add into code
+	public static int LMIN = 40;
+	public static int LMAX = 161;
+	public static int VMIN = 40;
+	public static int VMAX = 161;
+	//Used variables
+	public int hmin = HMIN;
+	public int hmax = HMAX;
+	public int smin = SMIN;
+	public int smax = SMAX;// This value not used as it is maximum. If changed go to createMap method to add into code
+	public int lmin = LMIN;
+	public int lmax = LMAX;
+	public int vmin = VMIN;
+	public int vmax = VMAX;
 	// End of lots of variables
 	//--------------------FIND PARTICLES------------------------------------------------------
 	final double totalPercent = 0.0006510416666666666;
@@ -205,6 +214,41 @@ public class Vision
 	Point[] COMasses;
 	//------------------------DEBUGGING VARIABLES--------------------------
 	public Particle bestParticle=null;
+	public Vision()
+	{
+		
+	}
+	public Vision(int[] hsv)
+	{
+		if(hsv.length>=6)
+		{
+			if (hsv[0] >= 0)
+			{
+				hmin = hsv[0];
+			}
+			if (hsv[1] >= 0)
+			{
+				hmax = hsv[1];
+			}
+			if (hsv[2] >= 0)
+			{
+				smin = hsv[2];
+			}
+			if (hsv[3] >= 0)
+			{
+				smax = hsv[3];
+			}
+			if (hsv[4] >= 0)
+			{
+				vmin = hsv[4];
+			}
+			if (hsv[5] >= 0)
+			{
+				vmax = hsv[5];
+			}
+			//System.out.println(hmin+" "+hmax+" "+smin+" "+smax+" "+vmin+" "+vmax);
+		}
+	}
 	public double[] process(boolean[][] map)
 	{
 		for(int i=0;i<largePercent.length;i++)

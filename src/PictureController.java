@@ -8,7 +8,7 @@ import javax.imageio.ImageIO;
 
 public class PictureController implements Runnable
 {
-	final static String PATH="C:\\Users\\"+System.getProperty("user.name")+"\\Downloads\\RealFullField\\";
+	static String path="C:\\Users\\"+System.getProperty("user.name")+"\\Downloads\\RealFullField\\";
 	int imageNumber=0;
 	int[] images={ 0, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15,
 			16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
@@ -45,8 +45,13 @@ public class PictureController implements Runnable
 		PictureController controller=new PictureController();
 		controller.control();
 	}
+	public void findPath()
+	{
+		path=System.getProperty("user.home")+File.separator+"Downloads"+File.separator+"RealFullField"+File.separator;
+	}
 	public void control()
 	{
+		findPath();
 		PictureTester frame=new PictureTester(getImage(images[imageNumber]));
 		Thread t=new Thread(this);
 		t.start();
@@ -64,7 +69,7 @@ public class PictureController implements Runnable
 				{
 					imageNumber=imageNumber+images.length;
 				}
-				System.out.println("Picture: "+imageNumber);
+				System.out.println("Picture: "+imageNumber+" \t--   "+images[imageNumber]+".jpg");
 				frame.setImage(getImage(images[imageNumber]));
 			}
 			if(newImage)
@@ -83,18 +88,20 @@ public class PictureController implements Runnable
 	public static BufferedImage getImage(int imageNumber)
 	{
 		BufferedImage image=null;
-		File file=new File(PATH+imageNumber+".jpg");
+		File file=new File(path+imageNumber+".jpg");
 		if(!file.exists())
 		{
 			System.out.println("Images not found. Attempting to download...");
 			try
 			{
-				DownloadImages.download(PATH);
+				DownloadImages.download(path);
 			} catch (IOException e)
 			{
-				// TODO Auto-generated catch block
+				System.out.println("Download Failed. Exiting...");
 				e.printStackTrace();
+				System.exit(1);
 			}
+			System.out.println("Images Successfully Downloaded at "+path);
 		}
 		try
 		{
