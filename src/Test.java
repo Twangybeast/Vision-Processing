@@ -6,8 +6,8 @@ import javax.imageio.ImageIO;
 
 public class Test 
 {
-	final static String path="C:\\Users\\Twangybeast\\Downloads\\RealFullField\\";
-	final static String fileNumber="3";
+	final static String path="C:\\Users\\"+System.getProperty("user.name")+"\\Downloads\\RealFullField\\";
+	final static String fileNumber="9";
 	public static void main(String[] args)
 	{
 		/*Webcam webcam=Webcam.getDefault();

@@ -218,8 +218,9 @@ public class PictureTester extends JFrame implements Runnable, ChangeListener
 			}
 		}
 		g.setColor(Color.CYAN);
-		g.fillRect(target.x, target.y, radius, radius);
+		g.fillRect(target.x-(radius/2), target.y-(radius/2), radius, radius);
 		g.drawImage(image, image.getWidth(), 0, null);
+		g.fillRect(target.x+image.getWidth()-(radius/2), target.y-(radius/2), radius, radius);
 		frameG.drawImage(picture, inset.left, inset.top, null);
 		hueMin.repaint();
 		hueMax.repaint();

@@ -203,9 +203,9 @@ public class Vision
 	final double dev=0.03715117993112262*5.0;
 	final double ideal=0.27858733495702565;
 	//-------------------------EQUIVALENT RECTANGLE------------------
-	final double difference=1.0/30.0;
+	final double difference=1.0/25.0;
 	final double angleU=		Math.toRadians(160);//Angle range for corner
-	final double angleL=		Math.toRadians(25);
+	final double angleL=		Math.toRadians(20);
 	final double maxDistance=10;//Minimum distance for boundaries between top/right/bottom/left
 	//---------------------GLOBAL VARIABLE 
 	int[] tHeight;// Height based on equivalent rectangle
@@ -819,7 +819,13 @@ public class Vision
 				contour.add(left.get(i));
 			}
 		}
+		//Now finds all possible corners
 		int diff=(int) (difference*particle.getWidth());
+		final int minDiff=4;
+		if(diff<minDiff)
+		{
+			diff=minDiff;
+		}
 		for(int i=0;i<contour.size();i++)
 		{
 			int before=(int) (i-diff);
@@ -943,6 +949,7 @@ public class Vision
 		targetLocations[index]=new Point((corner[0].x+corner[1].x)/2,(corner[0].y+corner[1].y)/2);
 		tWidth[index] = (int) width;
 		tHeight[index] = (int) height;
+		angles[index] = Math.atan((corner[3].y-corner[2].y)/(1.0*corner[3].x-corner[2].x));
 		double ratio = (width * 1.0) / (height * 1.0) * 1.0;
 		double ideal = 1.6;
 		score = (int) (100.0 * (Math.abs(ratio - ideal) / (0.9)));
@@ -1402,8 +1409,75 @@ public class Vision
 		boolean[][] map = new boolean[image.length][image[0].length];
 		//map = useHsl(map, image, hmin, hmax, smin, lmin, lmax);
 		map=useHsv(map, image, hmin, hmax, smin, smax, vmin, vmax);
+		map=advancedHSV(map, image);
 		// LightHSL is experimental idea, more lenient towards pixels surrounded by alive cells
 		// map=lightHsl(map,image, hmin, hmax, smin, lmin, lmax);
+		return map;
+	}
+	private boolean[][] advancedHSV(boolean[][] origin, int[][][] image)
+	{
+		/*
+		 * Looks through map, if there is a pixel within a 5 square or circle of an alive pixel,
+		 * then it uses another test to determine if it is "alive"
+		 */
+		final int searchBoxSize=4;
+		boolean[][] map = origin.clone();
+		for (int X=0; X < image[0].length; X++)
+		{
+			for(int Y=0; Y < image.length; Y++)
+			{
+				if(!origin[Y][X])
+				{
+					boolean nearby=false;
+					NearbySearch:
+					for(int i=0;i<searchBoxSize;i++)
+					{
+						for (int j=0;j<searchBoxSize;j++)
+						{
+							int x=i+X-(searchBoxSize/2);
+							int y=j+Y-(searchBoxSize/2);
+							if(x>=0&&y>=0)
+							{
+								if(x<origin[0].length&&y<origin.length)
+								{
+									if(distance(new Point(x,y),new Point(X,Y))<=5)//Optional code, makes it a sphere
+									{
+										if(origin[y][x])
+										{
+											nearby=true;
+											break NearbySearch;
+										}
+									}
+								}
+							}
+						}
+					}
+					if(nearby)
+					{
+						int[] pixel=image[Y][X];
+						final int bgMinimum=100;
+						if(pixel[1]<bgMinimum||pixel[2]<bgMinimum)
+						{
+							nearby=false;
+						}
+						if(nearby)
+						{
+							if(((pixel[1]+pixel[2])/2)-pixel[0]<40)
+							{
+								nearby=false;
+							}
+						}
+						if(nearby)
+						{
+							if(Math.abs(pixel[2]-pixel[1])<50)
+							{
+								map[Y][X]=true;
+							}
+						}
+					}
+				}
+			}
+		}
 		return map;
 	}
 	private boolean[][] useHsv(boolean[][] map, int[][][] image, int hmin, int hmax, int smin, int smax, int vmin, int vmax)
