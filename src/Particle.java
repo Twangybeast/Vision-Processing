@@ -12,11 +12,21 @@ public class Particle
 	private Point target=null;
 	private int tWidth=0;
 	private int tHeight=0;
+	private double angle=0;
+	public Point tLocation=null;
 	public Particle(int x, int y, boolean[][] map)
 	{
 		this.x=x;
 		this.y=y;
 		this.map=map;
+	}
+	public double getAngle()
+	{
+		return angle;
+	}
+	public void setAngle(double angle)
+	{
+		this.angle=angle;
 	}
 	public int getTWidth()
 	{

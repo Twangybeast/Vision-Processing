@@ -196,7 +196,6 @@ public class Vision
 			0.04678820175465448, 0.0028948404016799767, -0.04839095305519103,
 			-0.09823268067940166, -0.13611624362816493, -0.17919975542559263,
 			-0.2155597905937513, -0.20134609730818862, -0.158912037398586 };
-	int[] tWidth;// Width based on equivalent rectangle
 	//THOSE ARRAYS TAKE UP A LOT OF SPACE
 	
 	//-----------------------COVERAGE AREA----------------------------------------
@@ -208,9 +207,6 @@ public class Vision
 	final double angleL=		Math.toRadians(20);
 	final double maxDistance=10;//Minimum distance for boundaries between top/right/bottom/left
 	//---------------------GLOBAL VARIABLE 
-	int[] tHeight;// Height based on equivalent rectangle
-	double[] angles;
-	Point[] targetLocations;
 	Point[] COMasses;
 	//------------------------DEBUGGING VARIABLES--------------------------
 	public Particle bestParticle=null;
@@ -273,11 +269,7 @@ public class Vision
 			return toReturn;
 		}
 		ArrayList<int[]> score = new ArrayList<int[]>();
-		tWidth = new int[particles.size()];
-		tHeight = new int[particles.size()];
-		targetLocations = new Point[particles.size()];
 		COMasses = new Point[particles.size()];
-		angles = new double[particles.size()];
 		for (int i = 0; i < particles.size(); i++)
 		{
 			centerMass(particles.get(i), i);
@@ -315,16 +307,17 @@ public class Vision
 				}
 			}
 			// Distance calculation
-			toReturn[2] = (20.0 * map[0].length)
-					/ (2.0 * tWidth[recordIndex] * Math.tan(viewAngle / 2.0));
+			toReturn[2] = (20.0 * map[0].length)/ (2.0 * particles.get(recordIndex).getTWidth() * Math.tan(viewAngle / 2.0));
 			if (toReturn[2] < furthestDistance)
 			{
 				impossibleTarget = false;
 				Particle particle = particles.get(recordIndex);
-				toReturn[0] = targetLocations[recordIndex].getX()
-						+ particle.getX();
-				toReturn[1] = targetLocations[recordIndex].getY()
-						+ particle.getY();
+				if(particle.tLocation==null)
+				{
+					particle.tLocation=new Point(particle.getWidth()/2,0);
+				}
+				toReturn[0] = particle.tLocation.getX() + particle.getX();
+				toReturn[1] = particle.tLocation.getY() + particle.getY();
 				// Visual Demo
 				/*
 				 * Demo demo=new Demo(map[0].length,map.length,map);
@@ -340,7 +333,7 @@ public class Vision
 						/ (map[0].length / 2.0);
 				toReturn[1] = -1.0 * ((toReturn[1]) - (map.length / 2.0))
 						/ (map.length / 2.0);
-				toReturn[3] = angles[recordIndex];
+				toReturn[3] = particle.getAngle();
 				bestParticle=particle;
 			} 
 			else
@@ -946,10 +939,10 @@ public class Vision
 		width=(distance(corner[0],corner[1])+distance(corner[2],corner[3]))/2.0;
 		height=(distance(corner[0],corner[3])+distance(corner[1],corner[2]))/2.0;
 		particle.corners=corner;
-		targetLocations[index]=new Point((corner[0].x+corner[1].x)/2,(corner[0].y+corner[1].y)/2);
-		tWidth[index] = (int) width;
-		tHeight[index] = (int) height;
-		angles[index] = Math.atan((corner[3].y-corner[2].y)/(1.0*corner[3].x-corner[2].x));
+		particle.tLocation=new Point((corner[0].x+corner[1].x)/2,(corner[0].y+corner[1].y)/2);
+		particle.setTWidth((int) width);
+		particle.setTHeight((int) height);
+		particle.setAngle(Math.atan((corner[3].y-corner[2].y)/(1.0*corner[3].x-corner[2].x)));
 		double ratio = (width * 1.0) / (height * 1.0) * 1.0;
 		double ideal = 1.6;
 		score = (int) (100.0 * (Math.abs(ratio - ideal) / (0.9)));
