@@ -2,6 +2,7 @@ import java.awt.Point;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 public class Vision
 {
@@ -203,7 +204,7 @@ public class Vision
 	final double ideal=0.27858733495702565;
 	//-------------------------EQUIVALENT RECTANGLE------------------
 	final double difference=1.0/25.0;
-	final double angleU=		Math.toRadians(150);//Angle range for corner
+	final double angleU=		Math.toRadians(140);//Angle range for corner
 	final double angleL=		Math.toRadians(20);
 	final double maxDistance=10;//Minimum distance for boundaries between top/right/bottom/left
 	final Point[] allSurround = { 
@@ -249,6 +250,7 @@ public class Vision
 	}
 	public double[] process(boolean[][] map)
 	{
+		long start=System.currentTimeMillis();
 		for(int i=0;i<largePercent.length;i++)
 		{
 			largeMinAlive[i]=(int) (largePercent[i]*map.length*map[0].length);
@@ -260,7 +262,9 @@ public class Vision
 		// toReturn[2] distance to target, units should be inches
 		// toReturn[3] angle of the target, in radians
 		ArrayList<Particle> particles = null;
-		particles = findParticles(map);
+		long t1=System.currentTimeMillis();
+		particles = findParticles(Vision.copyOf(map));
+		System.out.println("FP Time: "+(System.currentTimeMillis()-t1));
 		if (particles.size() == 0)// No targets detected
 		{
 			toReturn[0] = 2.0;
@@ -350,142 +354,8 @@ public class Vision
 				impossCount++;
 			}
 		}
+		System.out.println("Total Time: "+(System.currentTimeMillis()-start));
 		return toReturn;
-	}
-
-	@SuppressWarnings("unused")
-	private ArrayList<Point> toContour(Particle particle)
-	{
-		Particle contourParticle=new Particle((int)particle.getX(),(int)particle.getY(),new boolean[particle.map.length][particle.map[0].length]);
-		for(int x=0;x<particle.getWidth();x++)
-		{
-			for(int y=0;y<particle.getHeight();y++)
-			{
-				if(particle.getLocalValue(x, y))
-				{
-					boolean edge=false;
-					//Checks top, bottom, left, and right, if any are false, it works
-					while(true)
-					{
-						//While statement weird way to prevent nested if else statements
-						if(particle.localInMap(x-1, y))
-						{
-							if(!particle.getLocalValue(x-1, y))
-							{
-								edge=true;
-								break;
-							}
-						}
-						else
-						{
-							edge=true;
-							break;
-						}
-						if(particle.localInMap(x+1, y))
-						{
-							if(!particle.getLocalValue(x+1, y))
-							{
-								edge=true;
-								break;
-							}
-						}
-						else
-						{
-							edge=true;
-							break;
-						}
-						if(particle.localInMap(x, y-1))
-						{
-							if(!particle.getLocalValue(x, y-1))
-							{
-								edge=true;
-								break;
-							}
-						}
-						else
-						{
-							edge=true;
-							break;
-						}
-						if(particle.localInMap(x, y+1))
-						{
-							if(!particle.getLocalValue(x, y+1))
-							{
-								edge=true;
-								break;
-							}
-						}
-						else
-						{
-							edge=true;
-							break;
-						}
-						break;
-					}
-					if(edge)
-					{
-						contourParticle.setLocalValue(x, y, true);
-					}
-				}
-			}
-		}
-		particle=contourParticle;
-		//Create an arraylist of the outer ring
-		ArrayList<Point> contour=new ArrayList<Point>();
-		//Find First point
-		Cycle:
-		for(int x=0;x<particle.getWidth();x++)
-		{
-			for(int y=0;y<particle.getHeight();y++)
-			{
-				if(particle.getLocalValue(x, y))
-				{
-					contour.add(new Point(x,y));
-					break Cycle;
-				}
-			}
-		}
-		//Search for a point closest to this point
-		Point last=contour.get(0);
-		while(true)
-		{
-			Point closest=null;
-			double distance=5;
-			for(int x=0;x<particle.getWidth();x++)
-			{
-				for(int y=0;y<particle.getHeight();y++)
-				{
-					if(particle.getLocalValue(x, y))
-					{
-						boolean inArray=false;
-						for(Point point:contour)
-						{
-							if(point.equals(new Point(x,y)))
-							{
-								inArray=true;
-								break;
-							}
-						}
-						if(!inArray)
-						{
-							double current;
-							if((current=distance(new Point(x,y),last))<distance)
-							{
-								distance=current;
-								closest=new Point(x,y);
-							}
-						}
-					}
-				}
-			}
-			if(closest==null)
-			{
-				break;
-			}
-			contour.add(closest);
-			last=closest;
-		}
-		return contour;
 	}
 	private double angle(Point pt0, Point pt1, Point pt2)
 	{
@@ -606,7 +476,6 @@ public class Vision
 	}
 	public ArrayList<Point> findContour(Particle particle)
 	{
-		long start=System.currentTimeMillis();
 		Particle contour=new Particle(particle);
 		//Shell, alive cells in shell represents dead cells around the particle, this avoids a contour with holes within
 		Particle shell=new Particle(particle.x-1,particle.y-1,new boolean[particle.map.length+2][particle.map[0].length+2]);
@@ -813,7 +682,6 @@ public class Vision
 				}
 			}
 		}
-		System.out.println("------TIME FOR CONTOUR\t"+(System.currentTimeMillis()-start));
 		return toReturn;
 	}
 	private int equivalentRectangle(Particle particle, int index)
@@ -974,6 +842,11 @@ public class Vision
 				cornerIndex.add(i);
 			}
 		}
+		for(int ci:cornerIndex)
+		{
+			corners.add(contour.get(ci));
+		}
+		/*
 		//Magical analyzer, consecutive corners will simply be shortened to the average
 		for(int i=0;i<cornerIndex.size();)
 		{
@@ -1032,6 +905,7 @@ public class Vision
 			corners.add(contour.get(mean));
 			i=i+count;
 		}
+		*/
 		//Find points closest to the corners of particle
 		Point[] fixed = {new Point(particle.getWidth(),0),new Point(0,0),new Point(0,particle.getHeight()),new Point(particle.getWidth(),particle.getHeight())};
 		Double[] record={9999.0,9999.0,9999.0,9999.0};
@@ -1193,6 +1067,7 @@ public class Vision
 
 	private ArrayList<Particle> findParticles(boolean[][] map)// Generates rectangles for every point
 	{
+		long total=0;
 		largeParticleIndex=-1;
 		ArrayList<Particle> toReturn = new ArrayList<Particle>();
 		ArrayList<Particle> smallParticles = new ArrayList<Particle>();
@@ -1205,16 +1080,12 @@ public class Vision
 			{
 				if (map[j][i])
 				{
-					boolean Continue = true;// Messy code to check if point was
-											// in rectangle
+					boolean Continue = true;// Messy code to check if point was in rectangle
 					for (Particle particle : toReturn)
 					{
 						if (particle.globalInMap(i, j))
 						{
-							if (particle.getGlobalValue(i, j))// Don't create a
-																// new rectangle
-																// if it already
-																// is in one
+							if (particle.getGlobalValue(i, j))// Don't create a new rectangle if it already is in one
 							{
 								Continue = false;
 								break;
@@ -1225,10 +1096,7 @@ public class Vision
 					{
 						if (particle.globalInMap(i, j))
 						{
-							if (particle.getGlobalValue(i, j))// Don't create a
-																// new rectangle
-																// if it already
-																// is in one
+							if (particle.getGlobalValue(i, j))// Don't create a new rectangle if it already is in one
 							{
 								Continue = false;
 								break;
@@ -1237,8 +1105,7 @@ public class Vision
 					}
 					if (Continue)// Generates new rectangle
 					{
-						Particle particle = new Particle(i, j,
-								new boolean[1][1]);
+						Particle particle = new Particle(i, j, new boolean[1][1]);
 						particle.map[0][0] = true;
 						boolean change = true;
 						Particle expansion = new Particle(
@@ -1274,10 +1141,7 @@ public class Vision
 						int y;
 						while (change)
 						{
-							Particle next = new Particle(
-									(int) (expansion.getX()),
-									(int) (expansion.getY()),
-									new boolean[expansion.map.length][expansion.map[0].length]);
+							Particle next = new Particle((int) (expansion.getX()),(int) (expansion.getY()),new boolean[expansion.map.length][expansion.map[0].length]);
 							change = false;
 							for (int k = 0; k < expansion.getWidth(); k++)
 							{
@@ -1291,17 +1155,15 @@ public class Vision
 										y = (int) (l + expansion.getY());
 										if (map[y][x])
 										{
+											map[y][x]=false;
 											change = true;
-											// Expand the particle into that
-											// square
-											// Determines if size increase of
-											// particle required
+											// Expand the particle into that square
+											// Determines if size increase of particle required
 											if (x - particle.getX() < 0)
 											{
 												particle.expandLeft();
 											}
-											if (x - particle.getX() >= particle
-													.getWidth())
+											if (x - particle.getX() >= particle.getWidth())
 											{
 												particle.expandRight();
 											}
@@ -1309,13 +1171,11 @@ public class Vision
 											{
 												particle.expandUp();
 											}
-											if (y - particle.getY() >= particle
-													.getHeight())
+											if (y - particle.getY() >= particle.getHeight())
 											{
 												particle.expandDown();
 											}
 											// Sets particle value
-											particle.count++;
 											particle.setGlobalValue(x, y, true);
 											// Prepares expansion for next cycle
 											// Make surrounding position of new
@@ -1359,38 +1219,11 @@ public class Vision
 											if (x + 1 < map[0].length)
 											{
 												// Check if expansion neccessary
-												while (x + 1 - next.getX() >= next
-														.getWidth())
+												while (x + 1 - next.getX() >= next.getWidth())
 												{
 													next.expandRight();
 												}
-												next.setGlobalValue(x + 1, y,
-														true);
-											}
-										}
-									}
-								}
-							}
-							for (int k = 0; k < particle.getWidth(); k++)
-							{
-								for (int l = 0; l < particle.getHeight(); l++)
-								{
-									if (particle.getLocalValue(k, l))
-									{
-										x = (int) (k + particle.getX());
-										y = (int) (l + particle.getY());
-										if (x - next.getX() >= 0
-												&& x - next.getX() < next
-														.getWidth())
-										{
-											if (y - next.getY() >= 0
-													&& y - next.getY() < next
-															.getHeight())
-											{
-												next.setLocalValue(
-														(int) (x - next.getX()),
-														(int) (y - next.getY()),
-														false);
+												next.setGlobalValue(x + 1, y,true);
 											}
 										}
 									}
@@ -1446,6 +1279,7 @@ public class Vision
 				toReturn.remove(particle);
 			}
 		}
+		System.out.println("Total \t"+total);
 		return toReturn;
 	}
 
@@ -1773,5 +1607,13 @@ public class Vision
 		}
 		hsv[2]=(int) (255.0*max);
 		return hsv;
+	}
+	public static boolean[][] copyOf(boolean[][] original) 
+	{
+		boolean[][] copy = new boolean[original.length][];
+	    for (int i = 0; i < original.length; i++) {
+	        copy[i] = Arrays.copyOf(original[i], original[i].length);
+	    }
+	    return copy;
 	}
 }

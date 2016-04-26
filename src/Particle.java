@@ -88,16 +88,7 @@ public class Particle
 	}
 	public boolean setGlobalValue(int x, int y, boolean value)
 	{
-		try
-		{
-			map[y-this.y][x-this.x]=value;
-		}
-		catch(ArrayIndexOutOfBoundsException e)
-		{
-			System.out.println("Error");
-			e.printStackTrace();
-			return false;
-		}
+		setLocalValue(x-this.x,y-this.y,value);
 		return true;
 	}
 	public boolean globalInMap(int x, int y)
@@ -135,6 +126,14 @@ public class Particle
 	}
 	public void setLocalValue(int x, int y, boolean value)
 	{
+		if(value)
+		{
+			count=count+1;
+		}
+		else
+		{
+			count=count-1;
+		}
 		map[y][x]=value;
 	}
 	public boolean getValue(int x, int y)
