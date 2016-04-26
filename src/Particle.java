@@ -14,6 +14,12 @@ public class Particle
 	private int tHeight=0;
 	private double angle=0;
 	public Point tLocation=null;
+	public Particle(Particle particle)
+	{
+		this.x=particle.x;
+		this.y=particle.y;
+		this.map=new boolean[particle.map.length][particle.map[0].length];
+	}
 	public Particle(int x, int y, boolean[][] map)
 	{
 		this.x=x;

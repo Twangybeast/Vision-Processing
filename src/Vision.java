@@ -203,9 +203,11 @@ public class Vision
 	final double ideal=0.27858733495702565;
 	//-------------------------EQUIVALENT RECTANGLE------------------
 	final double difference=1.0/25.0;
-	final double angleU=		Math.toRadians(160);//Angle range for corner
+	final double angleU=		Math.toRadians(150);//Angle range for corner
 	final double angleL=		Math.toRadians(20);
 	final double maxDistance=10;//Minimum distance for boundaries between top/right/bottom/left
+	final Point[] allSurround = { 
+			new Point(0, -1), new Point(1, -1), new Point(1, 0), new Point(1, 1), new Point(0, 1), new Point(-1, 1), new Point(-1, 0), new Point(-1, -1) };
 	//---------------------GLOBAL VARIABLE 
 	Point[] COMasses;
 	//------------------------DEBUGGING VARIABLES--------------------------
@@ -270,6 +272,7 @@ public class Vision
 		}
 		ArrayList<int[]> score = new ArrayList<int[]>();
 		COMasses = new Point[particles.size()];
+		System.out.println("----------------------NEW IMAGE-------------------------");
 		for (int i = 0; i < particles.size(); i++)
 		{
 			centerMass(particles.get(i), i);
@@ -282,6 +285,10 @@ public class Vision
 			Score[4]=Score[0]+Score[1]+Score[2]+Score[3];
 			//Score[4] = 0 - particles.get(i).count;// Very stupid method that should work better
 			score.add(Score);
+			System.out.println("Position: ("+particles.get(i).getX()+", "+particles.get(i).getY()+")");
+			System.out.println("Count: " +particles.get(i).count);
+			System.out.println("Score: "+Score[4]);
+			System.out.println("-------------------------------------------------");
 		}
 		boolean impossibleTarget = true;
 		int impossCount=0;
@@ -497,12 +504,326 @@ public class Vision
 		return Math.acos((Math.pow(c, 2)-(Math.pow(a, 2)+Math.pow(b, 2)))/(-2.0*a*b));
 		
 	}
+	public Cell[] allSurroundLocal(int x, int y, Particle toCheck)
+	{
+		Cell[] surrounding=new Cell[8];
+		//Top, clockwise
+		for(byte i=0;i<allSurround.length;i++)
+		{
+			int dx=x+allSurround[i].x;
+			int dy=y+allSurround[i].y;
+			if(toCheck.localInMap(dx, dy))
+			{
+				if(toCheck.getLocalValue(dx, dy))
+				{
+					surrounding[i]=Cell.TRUE;
+				}
+				else
+				{
+					surrounding[i]=Cell.FALSE;
+				}
+			}
+			else
+			{
+				surrounding[i]=Cell.NULL;
+			}
+		}
+		return surrounding;
+	}
+	public Cell[] allSurroundGlobal(int x, int y, Particle toCheck)
+	{
+		return allSurroundLocal(x-toCheck.x,y-toCheck.y,toCheck);
+	}
+	public Cell[] checkSurroundingLocal(int x, int y, Particle toCheck)
+	{
+		Cell[] surrounding=new Cell[4];
+		//Top, right, bottom, left
+		if(toCheck.localInMap(x, y+1))
+		{
+			if(toCheck.getLocalValue(x, y+1))
+			{
+				surrounding[0]=Cell.TRUE;
+			}
+			else
+			{
+				surrounding[0]=Cell.FALSE;
+			}
+		}
+		else
+		{
+			surrounding[0]=Cell.NULL;
+		}
+		if(toCheck.localInMap(x+1, y))
+		{
+			if(toCheck.getLocalValue(x+1, y))
+			{
+				surrounding[1]=Cell.TRUE;
+			}
+			else
+			{
+				surrounding[1]=Cell.FALSE;
+			}
+		}
+		else
+		{
+			surrounding[1]=Cell.NULL;
+		}
+		if(toCheck.localInMap(x, y-1))
+		{
+			if(toCheck.getLocalValue(x, y-1))
+			{
+				surrounding[2]=Cell.TRUE;
+			}
+			else
+			{
+				surrounding[2]=Cell.FALSE;
+			}
+		}
+		else
+		{
+			surrounding[2]=Cell.NULL;
+		}
+		if(toCheck.localInMap(x-1, y))
+		{
+			if(toCheck.getLocalValue(x-1, y))
+			{
+				surrounding[3]=Cell.TRUE;
+			}
+			else
+			{
+				surrounding[3]=Cell.FALSE;
+			}
+		}
+		else
+		{
+			surrounding[3]=Cell.NULL;
+		}
+		return surrounding;
+	}
+	public Cell[] checkSurroundingGlobal(int x, int y, Particle toCheck)
+	{
+		return checkSurroundingLocal(x-toCheck.x,y-toCheck.y,toCheck);
+	}
+	public ArrayList<Point> findContour(Particle particle)
+	{
+		long start=System.currentTimeMillis();
+		Particle contour=new Particle(particle);
+		//Shell, alive cells in shell represents dead cells around the particle, this avoids a contour with holes within
+		Particle shell=new Particle(particle.x-1,particle.y-1,new boolean[particle.map.length+2][particle.map[0].length+2]);
+		//Represents previous tiles that changed, used to determine which tiles to check for expansion;
+		Particle expanded=new Particle(shell);
+		//Starting "seed", guaranteed to be false in particle
+		for(int i=0;i<shell.getWidth();i++)
+		{
+			shell.setLocalValue(i, 0, true);
+			shell.setLocalValue(i, shell.getHeight()-1, true);
+			expanded.setLocalValue(i, 0, true);
+			expanded.setLocalValue(i, shell.getHeight()-1, true);
+		}
+		for(int i=0;i<shell.getHeight();i++)
+		{
+			shell.setLocalValue(0,i,true);
+			shell.setLocalValue(shell.getWidth()-1,i,true);
+			expanded.setLocalValue(0,i,true);
+			expanded.setLocalValue(shell.getWidth()-1,i,true);
+		}
+		expanded.setLocalValue(0, 0, false);
+		expanded.setLocalValue(0, expanded.getHeight()-1, false);
+		expanded.setLocalValue(expanded.getWidth()-1,0,false);
+		expanded.setLocalValue(expanded.getWidth()-1,expanded.getHeight()-1,false);
+		boolean change=true;
+		while(change)
+		{
+			//Represents expansion in this cycle
+			Particle expanding=new Particle(shell);
+			change=false;
+			for(int i=0;i<expanded.getHeight();i++)
+			{
+				for(int j=0;j<expanded.getWidth();j++)
+				{
+					if(expanded.getLocalValue(j, i))
+					{
+						int x=j+expanded.x;
+						int y=i+expanded.y;
+						//Look at all surrounding tiles for alive squares
+						Cell[] around=checkSurroundingGlobal(x,y,particle);
+						if(around[0].equals(Cell.FALSE))
+						{
+							if(!shell.getGlobalValue(x, y+1))
+							{
+								change=true;
+								expanding.setGlobalValue(x, y+1, true);
+								shell.setGlobalValue(x, y+1, true);
+							}
+						}
+						if(around[1].equals(Cell.FALSE))
+						{
+							if(!shell.getGlobalValue(x+1, y))
+							{
+								change=true;
+								expanding.setGlobalValue(x+1, y, true);
+								shell.setGlobalValue(x+1, y, true);
+							}
+						}
+						if(around[2].equals(Cell.FALSE))
+						{
+							if(!shell.getGlobalValue(x, y-1))
+							{
+								change=true;
+								expanding.setGlobalValue(x, y-1, true);
+								shell.setGlobalValue(x, y-1, true);
+							}
+						}
+						if(around[3].equals(Cell.FALSE))
+						{
+							if(!shell.getGlobalValue(x-1, y))
+							{
+								change=true;
+								expanding.setGlobalValue(x-1, y, true);
+								shell.setGlobalValue(x-1, y, true);
+							}
+						}
+					}
+				}
+			}
+			/*
+			 * "I'm fifty percent sure this is useless and caused a bug, and I'm fifty percent sure that this is needed."
+			 * --Best Programmer in the World
+			 */
+			
+			/*
+			//Clean up, avoid points already in shell
+			for(int i=0;i<expanding.map.length;i++)
+			{
+				for(int j=0;j<expanding.map[0].length;j++)
+				{
+					if(expanding.getLocalValue(j, i))
+					{
+						if(shell.getLocalValue(j, i))
+						{
+							expanding.setLocalValue(j, i, false);
+						}
+					}
+				}
+			}
+			*/
+			expanded=expanding;
+		}
+		for(int x=0;x<shell.getWidth();x++)
+		{
+			for(int y=0;y<shell.getHeight();y++)
+			{
+				if(!shell.getLocalValue(x,y))
+				{
+					Cell[] around=checkSurroundingLocal(x,y,shell);
+					boolean valid=false;
+					for(Cell value:around)
+					{
+						if(value.equals(Cell.TRUE))
+						{
+							valid=true;
+							break;
+						}
+					}
+					if(valid)
+					{
+						contour.setGlobalValue((int)(x+shell.getX()), (int)(y+shell.getY()), true);
+					}
+				}
+			}
+		}
+		ArrayList<Point> toReturn=new ArrayList<Point>();
+		/*
+		 * "If it's stupid, but works, then it isn't stupid. If it's stupid, and it doesn't work, it's stupid.
+		 * --Me before commenting out this code
+		 */
+		/*
+		Point previous=null;
+		for(int x=0;x<contour.getWidth();x++)
+		{
+			for(int y=0;y<contour.getHeight();y++)
+			{
+				if(contour.getLocalValue(x, y))
+				{
+					if(previous==null)
+					{
+						previous=new Point(x,y);
+						toReturn.add(previous);
+					}
+					else
+					{
+						//Search Square Width
+						final int SSW=4;
+						Point best=previous;
+						double record=9999.0;
+						for(int i=0;i<SSW;i++)
+						{
+							for(int j=0;j<SSW;j++)
+							{
+								double distance;
+								Point current=new Point(x+SSW-(SSW/2),y+SSW-(SSW/2));
+								if(!current.equals(previous))
+								{
+									if((distance=distance(previous,current))<record)
+									{
+										record=distance;
+										best =current;
+									}
+								}
+							}
+						}
+						previous=best;
+						toReturn.add(previous);
+					}
+				}
+			}
+		}
+		*/
+		Point previous=new Point(0,0);
+		OuterLoop:
+		for(int i=0;i<contour.getWidth();i++)
+		{
+			for(int j=0;j<contour.getHeight();j++)
+			{
+				if(contour.getLocalValue(i, j))
+				{
+					previous=new Point(i,j);
+					toReturn.add(previous);
+					break OuterLoop;
+				}
+			}
+		}
+		change=true;
+		while(change)
+		{
+			change=false;
+			Cell[] surround=allSurroundLocal(previous.x,previous.y,contour);
+			for(int i=0;i<surround.length;i++)
+			{
+				if(surround[i].equals(Cell.TRUE))
+				{
+					Point current=new Point(previous.x+allSurround[i].x,previous.y+allSurround[i].y);
+					if(!toReturn.contains(current))
+					{
+						change=true;
+						previous=current;
+						toReturn.add(current);
+						break;
+					}
+				}
+			}
+		}
+		System.out.println("------TIME FOR CONTOUR\t"+(System.currentTimeMillis()-start));
+		return toReturn;
+	}
 	private int equivalentRectangle(Particle particle, int index)
 	{
 		int score = 0;
 		double width=0;
 		double height=0;
 		Point[] corner=new Point[4];
+		//Old method, removed for new method
+		/*
 		ArrayList<Point> top=new ArrayList<Point>();
 		ArrayList<Point> bottom=new ArrayList<Point>();
 		ArrayList<Point> left=new ArrayList<Point>();
@@ -549,197 +870,6 @@ public class Vision
 				}
 			}
 		}
-		//"Creative" code, needs fixing
-		/*
-		//NEED TO MAKE A METHOD THAT "FLATTENS" 
-		for(int i=0;i<left.size();i++)
-		{
-			if((int)left.get(i).getX()==1)
-			{
-				left.set(i,new Point(0,i));
-			}
-		}
-		for(int i=0;i<right.size();i++)
-		{
-			if((int)right.get(i).getX()==particle.getWidth()-2)
-			{
-				right.set(i,new Point(particle.getWidth()-1,i));
-			}
-		}
-		for(int i=0;i<top.size();i++)
-		{
-			if((int)top.get(i).getY()==1)
-			{
-				top.set(i,new Point(i,0));
-			}
-		}
-		for(int i=0;i<bottom.size();i++)
-		{
-			if((int)bottom.get(i).getY()==particle.getHeight()-2)
-			{
-				bottom.set(i,new Point(i,particle.getHeight()-1));
-			}
-		}
-		Point marker;
-		boolean foundMarker;
-		boolean even;
-		int markerX;
-		int markerY;
-		ArrayList<Point> coin=new ArrayList<Point>();//Coin = Coincidence, calculates coincidences of various things
-		//Bottom Points, explanation of code under top points, marker used to find orientation of rectangle
-		markerX=bottom.size()/2;
-		markerY=(int) bottom.get(markerX).getY();
-		try
-		{
-			while((int)bottom.get(markerX-1).getY()==markerY)
-			{
-				markerX--;
-			}
-		}
-		catch (ArrayIndexOutOfBoundsException e)
-		{
-			markerX=bottom.size()/2;
-		}
-		marker=bottom.get(markerX);
-		foundMarker=false;
-		coin=new ArrayList<Point>();
-		for(int i=0;i<left.size();i++)
-		{
-			Point point=left.get(i);
-			for(Point pointCompare: bottom)
-			{
-				if(point.equals(pointCompare))
-				{
-					coin.add(point);
-					if(!foundMarker)
-					{
-						if(point.equals(marker))
-						{
-							foundMarker=true;
-						}
-					}
-					break;
-				}
-			}
-		}
-		if(!coin.isEmpty())
-		{
-			if(foundMarker)
-			{
-				corner[2]=coin.get(0);
-			}
-			else
-			{
-				corner[2]=coin.get(coin.size()-1);
-			}
-		}
-		corner[2].y=(corner[2].y*-1)+particle.getHeight();
-		even=foundMarker;
-		markerX=bottom.size()/2;
-		markerY=(int) bottom.get(markerX).getY();
-		try
-		{
-			while((int)bottom.get(markerX+1).getY()==markerY)
-			{
-				markerX++;
-			}
-		}
-		catch (ArrayIndexOutOfBoundsException e)
-		{
-			markerX=bottom.size()/2;
-		}
-		marker=bottom.get(markerX);
-		marker=bottom.get(bottom.size()/2);
-		foundMarker=false;
-		coin=new ArrayList<Point>();
-		for(int i=0;i<right.size();i++)
-		{
-			Point point=right.get(i);
-			for(Point pointCompare: bottom)
-			{
-				if(point.equals(pointCompare))
-				{
-					coin.add(point);
-					if(!foundMarker)
-					{
-						if(point.equals(marker))
-						{
-							foundMarker=true;
-						}
-					}
-					break;
-				}
-			}
-		}
-		if(!coin.isEmpty())
-		{
-			if(foundMarker)
-			{
-				corner[3]=coin.get(0);
-			}
-			else
-			{
-				corner[3]=coin.get(coin.size()-1);
-			}
-		}
-		corner[3].y=(corner[3].y*-1)+particle.getHeight();
-		even=!(even||foundMarker);
-		//Top Points
-		//Places a market half way on top, if it contains, then start from bottom using coincidence, else start from top
-		coin=new ArrayList<Point>();
-		for(int i=0;i<left.size();i++)
-		{
-			Point point=left.get(i);
-			for(Point pointCompare: top)
-			{
-				if(point.equals(pointCompare))
-				{
-					coin.add(point);
-					break;
-				}
-			}
-		}
-		if(!coin.isEmpty())
-		{
-			if(foundMarker)
-			{
-				//go from bottom
-				corner[1]=coin.get(coin.size()-1);
-			}
-			else
-			{
-				//start from top
-				corner[1]=coin.get(0);
-			}
-		}
-		//Begin finding other quadrant of top, I. Need to redo foundMarker because of 3 scenarios, same algorithm
-		coin=new ArrayList<Point>();
-		for(int i=0;i<right.size();i++)
-		{
-			Point point=right.get(i);
-			for(Point pointCompare: top)
-			{
-				if(point.equals(pointCompare))
-				{
-					coin.add(point);
-					break;
-				}
-			}
-		}
-		if(!coin.isEmpty())
-		{
-			if(!foundMarker)
-			{
-				corner[0]=coin.get(coin.size()-1);
-			}
-			else
-			{
-				corner[0]=coin.get(0);
-			}
-		}
-		*/
-		//Commented Out code For Experimental Idea
-		///*
 		ArrayList<Point> contour=top;
 		ArrayList<Point> corners=new ArrayList<Point>();
 		ArrayList<Integer> cornerIndex=new ArrayList<Integer>();
@@ -812,6 +942,11 @@ public class Vision
 				contour.add(left.get(i));
 			}
 		}
+		*/
+
+		ArrayList<Point> contour=findContour(particle);
+		ArrayList<Point> corners=new ArrayList<Point>();
+		ArrayList<Integer> cornerIndex=new ArrayList<Integer>();
 		//Now finds all possible corners
 		int diff=(int) (difference*particle.getWidth());
 		final int minDiff=4;
