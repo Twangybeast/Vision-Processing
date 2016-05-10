@@ -9,6 +9,10 @@ import java.awt.image.*;
 import javax.swing.*;
 import javax.swing.event.*;
 
+import visionCore.Particle;
+import visionCore.Vision;
+import keyboard.KeyboardInput;
+
 public class PictureTester extends JFrame implements Runnable, ChangeListener
 {
 	/**
@@ -153,7 +157,7 @@ public class PictureTester extends JFrame implements Runnable, ChangeListener
 				processImage=false;
 				v=new Vision(hsv);
 				map=v.createMap(image);
-				double[] target=v.process(map);
+				double[] target=v.process(image);
 				target[0]=(target[0]+1)*(image.getWidth()/2.0);
 				target[1]=-1.0*(target[1]-1)*(image.getHeight()/2.0);
 				this.target=new Point((int)target[0],(int)target[1]);

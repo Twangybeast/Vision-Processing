@@ -4,6 +4,8 @@ import java.io.IOException;
 
 import javax.imageio.ImageIO;
 
+import visionCore.Vision;
+
 import com.github.sarxos.webcam.Webcam;
 
 public class PiTest 
@@ -20,7 +22,7 @@ public class PiTest
 		BufferedImage image;
 		image=webcam.getImage();
 		start=System.currentTimeMillis();
-		double[] target=vision.process(vision.createMap(image));
+		double[] target=vision.process(image);
 		System.out.println("Process Time: "+(System.currentTimeMillis()-start));
 		System.out.println("("+target[0]+", "+target[1]+") Distance: "+target[2]);
 		try {
