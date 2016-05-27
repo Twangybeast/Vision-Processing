@@ -4,5 +4,7 @@ public enum Operation
 {
 	GAUSS,
 	DERIV,
-	PROCESS
+	PROCESS,
+	CONV,
+	CORNER
 }

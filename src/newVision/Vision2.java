@@ -133,6 +133,7 @@ public class Vision2
 	{
 		int[][][] image=getArray(input);
 		double[][] map=new double[image.length][image[0].length];
+		final double factor=1.0/(3*255.0);
 		for (int i = 0; i < image.length; i++)
 		{
 			for (int j = 0; j < image[0].length; j++)
@@ -151,12 +152,14 @@ public class Vision2
 					//value=value-(weights[k]*(Math.abs(hsv[k]-means[k])/(1.0*dev[k])));
 				}
 				*/
-				
+				/*
 				value=(100-Math.max(0.0,155-green))/100.0;
 				value=value-Math.max(0.0,red-40.0)/100.0;
 				
 				value=Math.min(1.0,value);
 				value=Math.max(0.0,value);
+				*/
+				value=(red+green+blue)*(factor);
 				map[i][j] = value;
 			}
 		}

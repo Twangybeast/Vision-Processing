@@ -51,7 +51,7 @@ public class KeyboardInput implements KeyListener
 		return keys[keyCode]==KeyState.ONCE;
 	}
 	@Override
-	public synchronized void keyPressed(KeyEvent e) 
+	public void keyPressed(KeyEvent e) 
 	{
 		int keyCode=e.getKeyCode();
 		if(keyCode<256&&keyCode>=0)
@@ -65,7 +65,7 @@ public class KeyboardInput implements KeyListener
 	}
 
 	@Override
-	public synchronized void keyReleased(KeyEvent e) 
+	public void keyReleased(KeyEvent e) 
 	{
 		int keyCode=e.getKeyCode();
 		if(keyCode<256&&keyCode>=0)

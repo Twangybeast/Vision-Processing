@@ -15,6 +15,7 @@ public class Particle
 	private int tHeight=0;
 	private double angle=0;
 	public Point tLocation=null;
+	public int score=9999;
 	public Particle(Particle particle)
 	{
 		this.x=particle.x;

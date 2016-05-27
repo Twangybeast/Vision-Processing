@@ -1,6 +1,7 @@
 package visionCore;
 
 import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.util.ArrayList;
@@ -14,25 +15,22 @@ public class Vision
 	/*
 	 * TO DO LIST					
 	 * [ ] Figure out wtf moment of inertia is		
-	 * [ ] Decrease findParticles processing time
 	 */
 	// Because some code was copy pas- *ahem* written by me, arrays that
 	// represent images are weird as they work as map[y][x]
 	// Detail:the reason for this is because the objects were created as
 	// [row][column], this is found in getArray where you find [height][width]
-	public final double viewAngle = 1.515;
-	/*
-	 * LIST OF VIEW ANGLES add when found 
-	 * MICROSOFT Lifecam HD-3000= {1.515 }
-	 */
-	//----------------------UNUSED-----------------------
-	final int colorThreshold = 130;
-	final int colorDifference = 30;
-	// red=0
-	// green=1
-	// blue=2
-	//
-	//-------------------HSL------------------------------------------------------------------
+	public final double viewAngle = Math.toRadians(67.9446);
+	//----------------SCORING MECHANISM----------------------
+	//Manually configure this. EQUIV_RECT should always go first.
+	final static ScoreType[] SCORE_PATTERN=
+		{
+			ScoreType.EQUIV_RECT,
+			ScoreType.COVERAGE,
+			ScoreType.MOMENT,
+			ScoreType.PROFILE
+		};
+	//-------------------HSL------------------------------------------------------------------FIX THIS MOVE TO DIFFERENT THRESHOLD PATTERN
 	// Lots of variables to adjust HSL threshold, naming scheme initial of hsl
 	// type and min/max threshold, inclusive; Default GRIP tutorial
 	//Default Values
@@ -59,150 +57,12 @@ public class Vision
 	int minimumAlive = 200;// Minimum alive cells in particle to be considered particle. This is default value. Real value based on totalPercent.		
 	final double maxRatio=3.5;//Highest simple ratio number can have to be valid
 	//Arrays of Thresholds, if larger particle, then proceed to next one
-	int[] largeMinAlive={300,500,700,1000,1500};
-	final double[] largePercent={largeMinAlive[0]/(640.0*480.0),largeMinAlive[1]/(640.0*480.0),largeMinAlive[2]/(640.0*480.0),largeMinAlive[3]/(640.0*480.0),largeMinAlive[4]/(640.0*480.0)};
-	final int furthestDistance = 400;
+	int[] largeMinAlive={300,500,700};
+	final double[] largePercent={largeMinAlive[0]/(640.0*480.0),largeMinAlive[1]/(640.0*480.0),largeMinAlive[2]/(640.0*480.0)};
+	final int furthestDistance = 30;
 	int largeParticleIndex=-1;
 	//----------------------XY PROFILE---------------------------------------------------
-	//DON'T LOOK HERE
-	//Data found experimentally, good luck have fun
-	final double[] profileMaxX = { 0.5325419745487893, 0.7722804963523211,
-			0.9437657370298176, 1.0232068477333296, 1.049626613273606,
-			1.0609269644417032, 1.0574181511285068, 1.0492152986857035,
-			1.0446743664223905, 1.0317483659740134, 1.0374145675127089,
-			1.07219296306833, 1.018050547507774, 0.9194192618397579,
-			0.7913106378571826, 0.6801335686045272, 0.5732009307630057,
-			0.47435216452105144, 0.4068677557293565, 0.34421431057124097,
-			0.28032910523377613, 0.243026130621746, 0.21550982911462735,
-			0.20494623310757853, 0.20047674349750916, 0.19767388390252877,
-			0.197720369136684, 0.19749555365904653, 0.1966911318998693,
-			0.19643333701086751, 0.1971169425571753, 0.1957908146219804,
-			0.19552300924524643, 0.19565255654155542, 0.19468088461890623,
-			0.19419006810099093, 0.19489452308002497, 0.19474206817185669,
-			0.1951117240580812, 0.19651591818643768, 0.19740953043465662,
-			0.1968813830788542, 0.19692696396270137, 0.1958027307632876,
-			0.1951828225174134, 0.19556780708088445, 0.19562764044293757,
-			0.19612008158771135, 0.1966472097232204, 0.19660949803398145,
-			0.19660949803398145, 0.1966472097232204, 0.19612008158771135,
-			0.19562764044293757, 0.19556780708088445, 0.1951828225174134,
-			0.1958027307632876, 0.19692696396270137, 0.1968813830788542,
-			0.19740953043465662, 0.19651591818643768, 0.1951117240580812,
-			0.19474206817185669, 0.19489452308002497, 0.19419006810099093,
-			0.19468088461890623, 0.19565255654155542, 0.19552300924524643,
-			0.1957908146219804, 0.1971169425571753, 0.19643333701086751,
-			0.1966911318998693, 0.19749555365904653, 0.197720369136684,
-			0.19767388390252877, 0.20047674349750916, 0.20494623310757853,
-			0.21550982911462735, 0.243026130621746, 0.28032910523377613,
-			0.34421431057124097, 0.4068677557293565, 0.47435216452105144,
-			0.5732009307630057, 0.6801335686045272, 0.7913106378571826,
-			0.9194192618397579, 1.018050547507774, 1.07219296306833,
-			1.0374145675127089, 1.0317483659740134, 1.0446743664223905,
-			1.0492152986857035, 1.0574181511285068, 1.0609269644417032,
-			1.049626613273606, 1.0232068477333296, 0.9437657370298176,
-			0.7722804963523211, 0.5325419745487893 };
-	final double[] profileMaxY = { 0.12193135366010589, 0.12703006495864894,
-			0.14518035051864792, 0.15289980335246955, 0.16174827134078565,
-			0.17361103656735818, 0.17916152501223062, 0.18152339915912497,
-			0.18781491825201935, 0.19273497505438686, 0.1996116766378952,
-			0.20758578846450312, 0.21580813387964115, 0.222364956612006,
-			0.2253929879098854, 0.23277642949042723, 0.23650360058740905,
-			0.23982370264623296, 0.24209486136890102, 0.2422386484300219,
-			0.24457883471411607, 0.24792766839021502, 0.25082427642010013,
-			0.2520831073381642, 0.2529583200908265, 0.2532229263735606,
-			0.25369254030784666, 0.2551786343559369, 0.25486683345537536,
-			0.2525791552938892, 0.2526794102577287, 0.2530030142328574,
-			0.252292218075372, 0.2520628791421964, 0.2523001305676126,
-			0.2548276355654818, 0.2531652368972359, 0.2531183648700706,
-			0.25484213099276626, 0.25494936893662684, 0.2545397214570442,
-			0.2532696181239743, 0.2515291100367782, 0.2515613960056998,
-			0.2514380394152972, 0.25122612387684334, 0.25534380704115006,
-			0.25652237968771086, 0.2553330136713359, 0.2562685861018664,
-			0.2586217691922319, 0.2585496495336308, 0.2620202311945956,
-			0.263324574711494, 0.2663114929559388, 0.2688802888415248,
-			0.27223785303711895, 0.2809687957650937, 0.28902465906035923,
-			0.30210088876915125, 0.31591475714768313, 0.3352879136018885,
-			0.350741832321321, 0.36733913958144676, 0.38927812394426503,
-			0.4157309628901814, 0.4462789475300839, 0.47686729996562693,
-			0.5083834209803791, 0.5431188871172126, 0.589945845522837,
-			0.624281547371798, 0.6659741637601201, 0.7119242437166428,
-			0.7572716549843661, 0.8035198700909241, 0.8428210155729507,
-			0.8920977389931223, 0.9342417327231008, 0.9804075152273352,
-			1.0198875791840776, 1.063989824598999, 1.1199284578219508,
-			1.1613501698335593, 1.193577096878319, 1.1924309567342442,
-			1.1786159071065367, 1.1645674311832162, 1.1492111890146004,
-			1.1287185905189232, 1.1008794149153454, 1.0768840675563864,
-			1.048323520569128, 1.0169364788029793, 0.9771959047325056,
-			0.9039267362474883, 0.8418678094813794, 0.7622854628835617,
-			0.5810810230321509, 0.3283870447301824 };
-	final double[] profileMinX = { -0.16852752284136432, -0.14501327330537173,
-			-0.03824013373685892, 0.07104773558856164, 0.18039099727022045,
-			0.2702628956982512, 0.34329225977533007, 0.4104041340446292,
-			0.4581510961559417, 0.49889122336539526, 0.47510537753581716,
-			0.2922930492826088, 0.07495234208992685, -0.038680811134493176,
-			-0.06273215302582552, -0.06750379344755009, -0.05553750870531898,
-			-0.026669486907982737, -0.004669852246615314, 0.02408560939810639,
-			0.05625239383864561, 0.07835501900487814, 0.09590516402449704,
-			0.10228523504460013, 0.10431934454790219, 0.10653733739032245,
-			0.10707328025120466, 0.1074202037393408, 0.10791207537395577,
-			0.1070282735411121, 0.1064788502537177, 0.10795560442444758,
-			0.10813697836076838, 0.10780963121374712, 0.1089478180702951,
-			0.10986758407572328, 0.10895107463212376, 0.10921422229838447,
-			0.10937648141073658, 0.10881459098704979, 0.10798257230528832,
-			0.10828235509977305, 0.10820969496577469, 0.10841483526896531,
-			0.10947996331789481, 0.10949419754490058, 0.10944902709653959,
-			0.10898885367406111, 0.10860678386326775, 0.1094939535645382,
-			0.1094939535645382, 0.10860678386326775, 0.10898885367406111,
-			0.10944902709653959, 0.10949419754490058, 0.10947996331789481,
-			0.10841483526896531, 0.10820969496577469, 0.10828235509977305,
-			0.10798257230528832, 0.10881459098704979, 0.10937648141073658,
-			0.10921422229838447, 0.10895107463212376, 0.10986758407572328,
-			0.1089478180702951, 0.10780963121374712, 0.10813697836076838,
-			0.10795560442444758, 0.1064788502537177, 0.1070282735411121,
-			0.10791207537395577, 0.1074202037393408, 0.10707328025120466,
-			0.10653733739032245, 0.10431934454790219, 0.10228523504460013,
-			0.09590516402449704, 0.07835501900487814, 0.05625239383864561,
-			0.02408560939810639, -0.004669852246615314, -0.026669486907982737,
-			-0.05553750870531898, -0.06750379344755009, -0.06273215302582552,
-			-0.038680811134493176, 0.07495234208992685, 0.2922930492826088,
-			0.47510537753581716, 0.49889122336539526, 0.4581510961559417,
-			0.4104041340446292, 0.34329225977533007, 0.2702628956982512,
-			0.18039099727022045, 0.07104773558856164, -0.03824013373685892,
-			-0.14501327330537173, -0.16852752284136432 };
-	final double[] profileMinY = { -0.012565949576067006,
-			-0.009505449356118134, 0.040042737082312506, 0.053574229835870776,
-			0.0542074692574096, 0.05264863496662609, 0.05102331911027591,
-			0.05388853633109911, 0.05465971072216762, 0.053718135911625775,
-			0.05389623812767125, 0.054646174054458735, 0.055967748823494576,
-			0.05544488040523769, 0.05879040384017223, 0.059581659150788974,
-			0.06194470961782578, 0.06391308679539512, 0.06543748880750362,
-			0.07101905633439808, 0.07488016556487281, 0.07610800534762961,
-			0.08620654845770641, 0.09167249947201436, 0.09792411613919891,
-			0.10761240362218832, 0.11187471602720933, 0.11716560324031126,
-			0.12137344772724389, 0.1281050801806022, 0.13167008467282143,
-			0.1335741786994158, 0.13700387321261082, 0.13891416767823872,
-			0.1404715960437331, 0.13959610297631905, 0.14369847117701448,
-			0.14692910006039545, 0.14710717998896605, 0.1494973729403744,
-			0.1526191603887237, 0.15511028545957675, 0.15937841588820234,
-			0.1613804828158908, 0.162052520748342, 0.1635320543448129,
-			0.1616017995727234, 0.1622581774472371, 0.16383796769663628,
-			0.16487189171530026, 0.1634177607804433, 0.16328720304095765,
-			0.1615773380762056, 0.16151628151190953, 0.1597930549312745,
-			0.15945548824728328, 0.15836543897071823, 0.1537185530715592,
-			0.1505394471523281, 0.1445049921707754, 0.1385556486959037,
-			0.12654047704795984, 0.11965450099573215, 0.11419107667626799,
-			0.10830976108987722, 0.09732249107900756, 0.08565244503029967,
-			0.07952628824565308, 0.07298130231865338, 0.06832083446382253,
-			0.06803832476537874, 0.07287837308132977, 0.0826283581326489,
-			0.08918628491891367, 0.10134667056738045, 0.11817729804259369,
-			0.12519913619107376, 0.14265816817519672, 0.1689190951347953,
-			0.20452183681338465, 0.27769407037825794, 0.33093005191003494,
-			0.3827442488408085, 0.3825908369739944, 0.36494939014814254,
-			0.326053975136237, 0.29160548595406216, 0.24754608329366057,
-			0.19208736368781304, 0.14738047915029606, 0.0963964429094113,
-			0.04678820175465448, 0.0028948404016799767, -0.04839095305519103,
-			-0.09823268067940166, -0.13611624362816493, -0.17919975542559263,
-			-0.2155597905937513, -0.20134609730818862, -0.158912037398586 };
-	//THOSE ARRAYS TAKE UP A LOT OF SPACE
+	
 	
 	//-----------------------COVERAGE AREA----------------------------------------
 	final double dev=0.03715117993112262*5.0;
@@ -215,55 +75,36 @@ public class Vision
 	final Point[] allSurround = { 
 			new Point(0, -1), new Point(1, -1), new Point(1, 0), new Point(1, 1), new Point(0, 1), new Point(-1, 1), new Point(-1, 0), new Point(-1, -1) };
 	//---------------------GLOBAL VARIABLE 
-	Point[] COMasses;
+	
 	//------------------------DEBUGGING VARIABLES--------------------------
 	public Particle bestParticle=null;
-	public Vision()
-	{
-		
-	}
-	public Vision(int[] hsv)
-	{
-		if(hsv.length>=6)
-		{
-			if (hsv[0] >= 0)
-			{
-				hmin = hsv[0];
-			}
-			if (hsv[1] >= 0)
-			{
-				hmax = hsv[1];
-			}
-			if (hsv[2] >= 0)
-			{
-				smin = hsv[2];
-			}
-			if (hsv[3] >= 0)
-			{
-				smax = hsv[3];
-			}
-			if (hsv[4] >= 0)
-			{
-				vmin = hsv[4];
-			}
-			if (hsv[5] >= 0)
-			{
-				vmax = hsv[5];
-			}
-			//System.out.println(hmin+" "+hmax+" "+smin+" "+smax+" "+vmin+" "+vmax);
-		}
-	}
+	public ArrayList<Point> corners_display=new ArrayList<Point>();
 	public double[] process(BufferedImage im)
 	{
-		RectangleController rc=new RectangleController(4);
+		System.out.println("----------------------NEW IMAGE-------------------------");
+		long t1=System.nanoTime();
+		FeatureDetector fd=new FeatureDetector(4);
 		Vision2 v2=new Vision2();
-		Thread t=new Thread(rc);
-		rc.setCommand(Operation.PROCESS);
-		rc.map=v2.createMap(im);
+		Thread t=new Thread(fd);
+		fd.setFindCorners(true);
+		fd.setMap(v2.createMap(im));
 		t.start();
-		return core(createMap(im),rc);
+		try
+		{
+			t.join();
+		} 
+		catch (InterruptedException e)
+		{
+			System.err.println("Thread interrupted. Results likely invalid.");
+			e.printStackTrace();
+		}
+		this.corners_display=fd.corners;
+		boolean[][] map=createMap(im);
+		double[] target=core(map,fd.corners);
+		System.out.printf("Total Time: [%d]\n", (int) ((System.nanoTime()-t1)/1000000));
+		return target;
 	}
-	public double[] core(boolean[][] map, RectangleController rc)
+	public double[] core(boolean[][] map, ArrayList<Point> corners)
 	{
 		long start=System.currentTimeMillis();
 		for(int i=0;i<largePercent.length;i++)
@@ -277,9 +118,7 @@ public class Vision
 		// toReturn[2] distance to target, units should be inches
 		// toReturn[3] angle of the target, in radians
 		ArrayList<Particle> particles = null;
-		long t1=System.currentTimeMillis();
 		particles = findParticles(Vision.copyOf(map));
-		System.out.println("FP Time: "+(System.currentTimeMillis()-t1));
 		if (particles.size() == 0)// No targets detected
 		{
 			toReturn[0] = 2.0;
@@ -289,28 +128,44 @@ public class Vision
 			bestParticle=null;
 			return toReturn;
 		}
-		ArrayList<int[]> score = new ArrayList<int[]>();
-		COMasses = new Point[particles.size()];
-		System.out.println("----------------------NEW IMAGE-------------------------");
-		while(!rc.cornersFound)
-		{
-			try
-			{
-				Thread.sleep(30);
-			} catch (InterruptedException e)
-			{
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
+		System.out.println("----------------------Particles------------------");
 		for (int i = 0; i < particles.size(); i++)
 		{
-			centerMass(particles.get(i), i);
-			int[] Score = new int[5];
+			int[] Score=new int[SCORE_PATTERN.length];
+			int totalScore=0;
+			for(int j=0;j<SCORE_PATTERN.length;j++)
+			{
+				Score s = null;
+				switch(SCORE_PATTERN[j])
+				{
+					case EQUIV_RECT:
+						s=equivRect(particles.get(i),corners);
+						break;
+					case COVERAGE:
+						s=coverage(particles.get(i));
+						break;
+					case MOMENT:
+						//s=moment(particles.get(i));
+						s=new Score(0,ScoreType.MOMENT);
+						break;
+					case PROFILE:
+						s=profile(particles.get(i));
+						break;
+				}
+				s.evaluateScore();
+				Score[j]=s.getScore();
+				totalScore=totalScore+Score[j];
+			}
+			particles.get(i).score=totalScore;
+			System.out.println("Position: ("+particles.get(i).getX()+", "+particles.get(i).getY()+")");
+			System.out.println("Count: " +particles.get(i).count);
+			System.out.println("Score: "+totalScore);
+			System.out.println("-------------------------------------------------");
+			/*
 			// less is better
 			Score[0]=coverageArea(particles.get(i));
 			//Score[1] = equivalentRectangle(particles.get(i)); // Moderately works
-			Score[1] = RectangleAlgorithm.equivRect(particles.get(i), rc.interest);
+			Score[1] = equivRect(particles.get(i), corners);
 			// Score[2]=moment(particles.get(i),i);
 			Score[3]=xyprofile(particles.get(i));
 			Score[4]=Score[0]+Score[1]+Score[2]+Score[3];
@@ -320,6 +175,7 @@ public class Vision
 			System.out.println("Count: " +particles.get(i).count);
 			System.out.println("Score: "+Score[4]);
 			System.out.println("-------------------------------------------------");
+			*/
 		}
 		boolean impossibleTarget = true;
 		int impossCount=0;
@@ -336,16 +192,16 @@ public class Vision
 			}
 			int recordIndex = 0;
 			int record = 99999;// Absurd number that is easy to beat
-			for (int i = 0; i < score.size(); i++)
+			for (int i = 0; i < particles.size(); i++)
 			{
-				if (score.get(i)[4] < record)
+				if (particles.get(i).score < record)
 				{
 					recordIndex = i;
-					record = score.get(i)[4];
+					record = particles.get(i).score;
 				}
 			}
 			// Distance calculation
-			toReturn[2] = (20.0 * map[0].length)/ (2.0 * particles.get(recordIndex).getTWidth() * Math.tan(viewAngle / 2.0));
+			toReturn[2]= 1.66 * (map.length / (2 * particles.get(recordIndex).getTWidth() * Math.tan(viewAngle)));
 			if (toReturn[2] < furthestDistance)
 			{
 				impossibleTarget = false;
@@ -354,8 +210,8 @@ public class Vision
 				{
 					particle.tLocation=new Point(particle.getWidth()/2,0);
 				}
-				toReturn[0] = particle.tLocation.getX() + particle.getX();
-				toReturn[1] = particle.tLocation.getY() + particle.getY();
+				toReturn[0] = particle.tLocation.getX();
+				toReturn[1] = particle.tLocation.getY();
 				// Visual Demo
 				/*
 				 * Demo demo=new Demo(map[0].length,map.length,map);
@@ -367,39 +223,354 @@ public class Vision
 					// (int)(COMasses[recordIndex].getY()+particle.getY()),Color.GREEN);
 					// Converts coordinate system to domain & range of -1 to 1,
 					// centered on center of image
-				toReturn[0] = ((toReturn[0]) - (map[0].length / 2.0))
-						/ (map[0].length / 2.0);
-				toReturn[1] = -1.0 * ((toReturn[1]) - (map.length / 2.0))
-						/ (map.length / 2.0);
+				toReturn[0] = ((toReturn[0]) - (map[0].length / 2.0)) / (map[0].length / 2.0);
+				toReturn[1] = -1.0 * ((toReturn[1]) - (map.length / 2.0)) / (map.length / 2.0);
 				toReturn[3] = particle.getAngle();
 				bestParticle=particle;
+				System.out.printf("FINAL DISTANCE--------------------------------------------------------------[%f]-----\n",toReturn[2]);
 			} 
 			else
 			{
-				int[] badScore = { 200, 200, 200, 200, 800 };
-				score.set(recordIndex, badScore);
+				particles.get(recordIndex).score=9999;
 				impossCount++;
 			}
 		}
-		System.out.println("Total Time: "+(System.currentTimeMillis()-start));
+		System.out.println("Core Time: "+(System.currentTimeMillis()-start));
 		return toReturn;
 	}
-	private double angle(Point pt0, Point pt1, Point pt2)
+	private Score equivRect(Particle particle, ArrayList<Point> interest)
 	{
-		//Finds the angle between rays pt0 -> pt1 and pt0 -> pt2
-		double a=distance(pt0,pt1);
-		double b=distance(pt0,pt2);
-		double c=distance(pt1,pt2);
-		if(a==0)
+		final int searchSide=3;
+		/*
+		 * Corner order for reference
+		 * 		0	1
+		 * 
+		 * 		2	3
+		 */
+		Point[] fixed=
+			{
+				new Point((int)(particle.getX()),(int)(particle.getY())),
+				new Point((int)(particle.getX()+particle.getWidth()-1),(int)(particle.getY())),
+				new Point((int)(particle.getX()),(int)(particle.getY()+particle.getHeight()-1)),
+				new Point((int)(particle.getX()+particle.getWidth()-1),(int)(particle.getY()+particle.getHeight()-1))
+			};
+		ArrayList<Point> candidates=new ArrayList<Point>();
+		for(Point point: interest)
 		{
-			a=1e-10;
+			if(new Rectangle(particle.x-searchSide,particle.y-searchSide,particle.getWidth()+(2*searchSide),particle.getHeight()+(2*searchSide)).contains(point))
+			{
+				candidates.add(point);
+			}
 		}
-		if(b==0)
-		{
-			b=1e-10;
-		}
-		return Math.acos((Math.pow(c, 2)-(Math.pow(a, 2)+Math.pow(b, 2)))/(-2.0*a*b));
+		Point runner0=null;
+		Point runner1=null;
+		Point best0=null;
+		Point best1 = null;
+		int best0_s=9999;
+		int best1_s=9999;
+		int runner0_s=9999;
+		int runner1_s=9999;
 		
+		Point runner2=null;
+		Point runner3=null;
+		Point best2=null;
+		Point best3=null;
+		int best2_s=9999;
+		int best3_s=9999;
+		int runner2_s=9999;
+		int runner3_s=9999;
+		for(Point point : candidates)
+		{
+			//Decide on quadrant
+			if(point.y>particle.y+(particle.getHeight()/2))
+			{
+				// 2 or 3
+				if(point.x>particle.x+(particle.getWidth()/2))
+				{
+					//3
+					int distance=(particle.y+particle.getHeight()-1)-point.y;
+					if(distance<best3_s)
+					{
+						if(best3!=null)
+						{
+							runner3=new Point(best3.x,best3.y);
+						}
+						else
+						{
+							runner3=null;
+						}
+						best3=point;
+						best3_s=distance;
+					}
+					else
+					{
+						if(distance<runner3_s)
+						{
+							runner3=point;
+							runner3_s=distance;
+						}
+					}
+				}
+				else
+				{
+					//2
+					int distance=(particle.y+particle.getHeight()-1)-point.y;
+					if(distance<best2_s)
+					{
+						if(best2!=null)
+						{
+							runner2=new Point(best2.x,best2.y);
+						}
+						else
+						{
+							runner2=null;
+						}
+						best2=point;
+						best2_s=distance;
+					}
+					else
+					{
+						if(distance<runner2_s)
+						{
+							runner2=point;
+							runner2_s=distance;
+						}
+					}
+				}
+			}
+			else
+			{
+				//0 or 1
+				if(point.x>particle.x+(particle.getWidth()/2))
+				{
+					//1
+					int distance=point.y-particle.y;
+					if(distance<best1_s)
+					{
+						if(best1!=null)
+						{
+							runner1=new Point(best1.x,best1.y);
+						}
+						else
+						{
+							runner1=null;
+						}
+						best1=point;
+						best1_s=distance;
+					}
+					else
+					{
+						if(distance<runner1_s)
+						{
+							runner1=point;
+							runner1_s=distance;
+						}
+					}
+				}
+				else
+				{
+					//0
+					int distance=point.y-particle.y;
+					if(distance<best0_s)
+					{
+						if(best0!=null)
+						{
+							runner0=new Point(best0.x,best0.y);
+						}
+						else
+						{
+							runner0=null;
+						}
+						best0=point;
+						best0_s=distance;
+					}
+					else
+					{
+						if(distance<runner0_s)
+						{
+							runner0=point;
+							runner0_s=distance;
+						}
+					}
+				}
+			}
+			/*
+			for(int i=0;i<fixed.length;i++)
+			{
+				double distance=distance(fixed[i],point);
+				if(distance<record[i])
+				{
+					record[i]=distance;
+					particle.corners[i]=point;
+					cornersfound[i]=true;
+				}
+			}
+			*/
+		}
+		if(runner0!=null)
+		{
+			if(best0.x<runner0.x)
+			{
+				particle.corners[0]=best0;
+			}
+			else
+			{
+				particle.corners[0]=runner0;
+			}
+		}
+		else
+		{
+			particle.corners[0]=best0;
+		}
+
+		if(runner1!=null)
+		{
+			if(best1.x>runner1.x)
+			{
+				particle.corners[1]=best1;
+			}
+			else
+			{
+				particle.corners[1]=runner1;
+			}
+		}
+		else
+		{
+			particle.corners[1]=best1;
+		}
+
+		if(runner2!=null)
+		{
+			if(best2.y>runner2.y)
+			{
+				particle.corners[2]=best2;
+			}
+			else
+			{
+				particle.corners[2]=runner2;
+			}
+		}
+		else
+		{
+			particle.corners[2]=best2;
+		}
+
+		if(runner3!=null)
+		{
+			if(best3.y>runner3.y)
+			{
+				particle.corners[3]=best3;
+			}
+			else
+			{
+				particle.corners[3]=runner3;
+			}
+		}
+		else
+		{
+			particle.corners[3]=best3;
+		}
+		//Finishing code, always keep
+		double width;
+		double height;
+		//Defaults corner if no valid ones detected
+		for(int i=0;i<particle.corners.length;i++)
+		{
+			if(particle.corners[i]==null)
+			{
+				particle.corners[i]=fixed[i];
+			}
+		}
+		//Verify point in correct quadrant, otherwise set to fixed corner
+		if(particle.corners[0].x>(particle.getX()+(particle.getWidth()/2)) || particle.corners[0].y > (particle.getY()+(particle.getHeight()/2)))
+		{
+			particle.corners[0]=fixed[0];
+		}
+		if(particle.corners[1].x<(particle.getX()+(particle.getWidth()/2)) || particle.corners[1].y > (particle.getY()+(particle.getHeight()/2)))
+		{
+			particle.corners[1]=fixed[1];
+		}
+		if(particle.corners[2].x>(particle.getX()+(particle.getWidth()/2)) || particle.corners[2].y < (particle.getY()+(particle.getHeight()/2)))
+		{
+			particle.corners[2]=fixed[2];
+		}
+		if(particle.corners[3].x<(particle.getX()+(particle.getWidth()/2)) || particle.corners[3].y < (particle.getY()+(particle.getHeight()/2)))
+		{
+			particle.corners[3]=fixed[3];
+		}
+		width=(distance(particle.corners[0],particle.corners[1])+distance(particle.corners[2],particle.corners[3]))/2.0;
+		height=(distance(particle.corners[0],particle.corners[2])+distance(particle.corners[1],particle.corners[3]))/2.0;
+		particle.tLocation=new Point((particle.corners[0].x+particle.corners[1].x)/2,(particle.corners[0].y+particle.corners[1].y)/2);
+		particle.setTWidth((int) width);
+		particle.setTHeight((int) height);
+		//particle.setAngle(Math.atan((particle.corners[2].y-particle.corners[3].y)/(1.0*particle.corners[2].x-particle.corners[3].x)));
+		particle.setAngle(Math.atan((particle.corners[2].y-particle.corners[3].y)/(1.0*(particle.corners[3].x-particle.corners[2].x))));
+		//particle.setAngle(Math.atan2(particle.corners[3].x-particle.corners[2].x,particle.corners[2].y-particle.corners[3].y));
+		double ratio = (width * 1.0) / (height * 1.0) * 1.0;
+		return new Score(ratio, ScoreType.EQUIV_RECT);
+	}
+	private Score coverage(Particle particle)
+	{
+		double ratio=particle.count/(particle.getTWidth()*particle.getTHeight()*1.0);
+		return new Score(ratio, ScoreType.COVERAGE);
+	}
+	private Score profile(Particle particle)
+	{
+		double x1=(particle.corners[2].x-particle.corners[0].x)/100.0;
+		double y1=(particle.corners[2].y-particle.corners[0].y)/100.0;
+		double x2=(particle.corners[3].x-particle.corners[1].x)/100.0;
+		double y2=(particle.corners[3].y-particle.corners[1].y)/100.0;
+		double[] xprofile=new double[100];
+		double[] yprofile=new double[100];
+		//First x profile
+		for(int i=0;i<100;i++)
+		{
+			Point p1=new Point((int)(particle.corners[0].x+(i*x1)),(int)(particle.corners[0].y+(i*y1)));
+			Point p2=new Point((int)(particle.corners[1].x+(i*x2)),(int)(particle.corners[1].y+(i*y2)));
+			double slope=(p1.y-p2.y)/(p1.x-p2.x*1.0);
+			int count=0;
+			int alive=0;
+			for(int x=p1.x;x<p2.x;x++)
+			{
+				int y=(int) (slope*x)+p1.y;
+				if(particle.globalInMap(x, y))
+				{
+					if(particle.getGlobalValue(x, y))
+					{
+						alive++;
+					}
+					count++;
+				}
+			}
+			xprofile[i]=count/(alive*1.0);
+		}
+		x1=(particle.corners[1].x-particle.corners[0].x)/100;
+		y1=(particle.corners[1].y-particle.corners[0].y)/100;
+		x2=(particle.corners[3].x-particle.corners[2].x)/100;
+		y2=(particle.corners[3].y-particle.corners[2].y)/100;
+		//Next y profile
+		for(int i=0;i<100;i++)
+		{
+			Point p1=new Point((int)(particle.corners[0].x+(i*x1)),(int)(particle.corners[0].y+(i*y1)));
+			Point p2=new Point((int)(particle.corners[2].x+(i*x2)),(int)(particle.corners[2].y+(i*y2)));
+			double slope=(p1.x-p2.x)/(p1.y-p2.y*1.0);
+			int count=0;
+			int alive=0;
+			for(int y=p1.y;y<p2.y;y++)
+			{
+				int x=(int) (slope*y)+p1.x;
+				if(particle.globalInMap(x, y))
+				{
+					if(particle.getGlobalValue(x, y))
+					{
+						alive++;
+					}
+					count++;
+				}
+			}
+			yprofile[i]=count/(alive*1.0);
+		}
+		return new Score(xprofile, yprofile);
 	}
 	public Cell[] allSurroundLocal(int x, int y, Particle toCheck)
 	{
@@ -427,11 +598,7 @@ public class Vision
 		}
 		return surrounding;
 	}
-	public Cell[] allSurroundGlobal(int x, int y, Particle toCheck)
-	{
-		return allSurroundLocal(x-toCheck.x,y-toCheck.y,toCheck);
-	}
-	public Cell[] checkSurroundingLocal(int x, int y, Particle toCheck)
+	private Cell[] checkSurroundingLocal(int x, int y, Particle toCheck)
 	{
 		Cell[] surrounding=new Cell[4];
 		//Top, right, bottom, left
@@ -685,258 +852,11 @@ public class Vision
 		}
 		return scan;
 	}
-	private int equivalentRectangle(Particle particle)
-	{
-		int score = 0;
-		double width=0;
-		double height=0;
-		Point[] corner=new Point[4];
-		ArrayList<Point> corners=new ArrayList<Point>();
-		Particle[] Contour=findContour(particle);
-		//Make a nice, solid particle w/o holes
-		Particle solidParticle=new Particle(Contour[0]);
-		for(int x=0;x<Contour[0].getWidth();x++)
-		{
-			for(int y=0;y<Contour[0].getHeight();y++)
-			{
-				if(!Contour[0].getLocalValue(x, y))
-				{
-					solidParticle.setLocalValue(x, y, true);
-				}
-			}
-		}
-		solidParticle.shorten();
-		//Create a "circle scan algorithm. Scans around each point on contour and compares to solid particle. 3 : 1 Ratio of Dead to Alive is a corner
-		final double ratioL=1.1;
-		final double ratioU=99;
-		int circleScanRad= (int) (difference*(particle.getWidth()));
-		Particle contour=Contour[1];
-		boolean[][] scanPattern=new boolean[1+circleScanRad*2][1+circleScanRad*2];
-		scanPattern=generateCircle(scanPattern, circleScanRad);
-		for(int i=0;i<contour.getWidth();i++)
-		{
-			for(int j=0;j<contour.getHeight();j++)
-			{
-				if(contour.getLocalValue(i, j))
-				{
-					int count=0;
-					int dead=0;
-					/*
-					for(double x=i-circleScanRad;x<=i+circleScanRad*2;x++)
-					{
-						for(double y=j-circleScanRad;y<=j+circleScanRad*2;y++)
-						{
-							int x1=(int)(contour.getX()+x);
-							int y1=(int)(contour.getY()+y);
-							//if(distance(new Point(x1,y1),new Point((int)(i+contour.getX()),(int)(j+contour.getY())))<=(circleScanRad*1.2))
-							{
-								if(solidParticle.globalInMap(x1, y1))
-								{
-									if(solidParticle.getGlobalValue(x1,y1))
-									{
-										count++;
-									}
-									else
-									{
-										dead++;
-									}
-								}
-								else
-								{
-									dead++;
-								}
-							}
-						}
-					}
-					*/
-					for(int y=0;y<scanPattern.length;y++)
-					{
-						for(int x=0;x<scanPattern[0].length;x++)
-						{
-							if(scanPattern[y][x])
-							{
-								int x1=(int) (x+contour.getX()-circleScanRad+i);
-								int y1=(int) (y+contour.getY()-circleScanRad+j);
-								if(solidParticle.globalInMap(x1, y1))
-								{
-									if(solidParticle.getGlobalValue(x1,y1))
-									{
-										count++;
-									}
-									else
-									{
-										dead++;
-									}
-								}
-								else
-								{
-									dead++;
-								}
-							}
-						}
-					}
-					double ratio=dead/(1.0*count);
-					if(ratio>ratioL&&ratio<ratioU)
-					{
-						corners.add(new Point(i,j));
-					}
-				}
-			}
-		}
-		/*
-		ArrayList<Point> contour=findContour(particle);
-		ArrayList<Integer> cornerIndex=new ArrayList<Integer>();
-		//Now finds all possible corners
-		int diff=(int) (difference*particle.getWidth());
-		final int minDiff=4;
-		if(diff<minDiff)
-		{
-			diff=minDiff;
-		}
-		for(int i=0;i<contour.size();i++)
-		{
-			int before=(int) (i-diff);
-			int after=(int) (i+diff);
-			//Make sure they're in the array
-			if(before<0)
-			{
-				before=before+contour.size();
-			}
-			if(after>=contour.size())
-			{
-				after=after-contour.size();
-			}
-			double angle;
-			angle=angle(contour.get(i),contour.get(before),(contour.get(after)));
-			if(angle>angleL&&angle<angleU)
-			{
-				cornerIndex.add(i);
-			}
-		}
-		for(int ci:cornerIndex)
-		{
-			corners.add(contour.get(ci));
-		}
-		//Magical analyzer, consecutive corners will simply be shortened to the average
-		for(int i=0;i<cornerIndex.size();)
-		{
-			boolean looped=false;
-			ArrayList<Integer> series=new ArrayList<Integer>();
-			int j=1;
-			if(i+j>=cornerIndex.size())
-			{
-				j=j-cornerIndex.size();
-			}
-			while(cornerIndex.get(j+i)==j+cornerIndex.get(i))
-			{
-				series.add((j+cornerIndex.get(i)));
-				j++;
-				if(j+i>=cornerIndex.size())
-				{
-					if(looped)
-					{
-						break;
-					}
-					j=j-cornerIndex.size();
-					looped=true;
-				}
-			}
-			if(i==0)
-			{
-				looped=false;
-				j=-1;
-				if(j+i<0)
-				{
-					j=j+cornerIndex.size();
-				}
-				while(cornerIndex.get(j+i)==j+cornerIndex.get(i))
-				{
-					series.add((j+cornerIndex.get(i)));
-					j--;
-					if(j+i<0)
-					{
-						if(looped)
-						{
-							break;
-						}
-						j=j+cornerIndex.size();
-						looped=true;
-					}
-				}
-			}
-			int mean=cornerIndex.get(i);
-			int count=1;
-			for(int Index: series)
-			{
-				mean=mean+Index;
-				count++;
-			}
-			mean=mean/count;
-			corners.add(contour.get(mean));
-			i=i+count;
-		}
-		*/
-		//Find points closest to the corners of particle
-		Point[] fixed = {new Point(particle.getWidth(),0),new Point(0,0),new Point(0,particle.getHeight()),new Point(particle.getWidth(),particle.getHeight())};
-		Double[] record={9999.0,9999.0,9999.0,9999.0};
-		//Goes in quadrant order
-		for(Point point: corners)
-		{
-			for(int i=0;i<2;i++)
-			{
-				int quadrant=i;
-				if(point.getY()>particle.getHeight()/2)
-				{
-					quadrant=quadrant+2;
-				}
-				double distance=distance(point,fixed[quadrant]);
-				if(distance<record[quadrant])
-				{
-					record[quadrant]=distance;
-					corner[quadrant]=point;
-				}
-			}
-		}
-		//*/
-		//Finishing code, always keep
-		if(corner[0]==null)
-		{
-			corner[0]=new Point(particle.getWidth(),0);
-		}
-		if(corner[1]==null)
-		{
-			corner[1]=new Point(0,0);
-		}
-		if(corner[2]==null)
-		{
-			corner[2]=new Point(0, particle.getHeight());
-		}
-		if(corner[3]==null)
-		{
-			corner[3]=new Point(particle.getWidth(),particle.getHeight());
-		}
-		width=(distance(corner[0],corner[1])+distance(corner[2],corner[3]))/2.0;
-		height=(distance(corner[0],corner[3])+distance(corner[1],corner[2]))/2.0;
-		particle.corners=corner;
-		particle.tLocation=new Point((corner[0].x+corner[1].x)/2,(corner[0].y+corner[1].y)/2);
-		particle.setTWidth((int) width);
-		particle.setTHeight((int) height);
-		particle.setAngle(Math.atan((corner[3].y-corner[2].y)/(1.0*corner[3].x-corner[2].x)));
-		double ratio = (width * 1.0) / (height * 1.0) * 1.0;
-		double ideal = 1.6;
-		score = (int) (100.0 * (Math.abs(ratio - ideal) / (0.9)));
-		if (score > 100)
-		{
-			score = 100;
-		}
-		return score;
-	}
-
 	private double distance(Point p, Point p2)
 	{
 		return Math.sqrt(Math.pow(p.x - p2.x, 2) + Math.pow(p.y - p2.y, 2));
 	}
-
+	/*
 	private int xyprofile(Particle particle)
 	{
 		int score = 200;
@@ -990,7 +910,7 @@ public class Vision
 		}
 		return score;
 	}
-
+	*/
 	/*
 	 * private int moment(Particle particle, int location) { int score=0; Point
 	 * centerMass=COMasses[location]; double moment=0; for(int
@@ -1002,6 +922,7 @@ public class Vision
 	 * score=(int)(100.0*(Math.abs(ratio-ideal)/(ideal))); if(score>100) {
 	 * score=100; } return score; }
 	 */
+	/*
 	private Point centerMass(Particle particle, int location)
 	{
 		int xTotal = 0;
@@ -1022,7 +943,7 @@ public class Vision
 		COMasses[location] = toReturn;
 		return toReturn;
 	}
-
+	*/
 	private int coverageArea(Particle particle)
 	{
 		int toReturn=0;
@@ -1040,7 +961,6 @@ public class Vision
 		long total=0;
 		largeParticleIndex=-1;
 		ArrayList<Particle> toReturn = new ArrayList<Particle>();
-		ArrayList<Particle> smallParticles = new ArrayList<Particle>();
 		int iStart = 0, jStart = 0, iMax = 0, jMax = 0;
 		iMax = map[0].length;
 		jMax = map.length;
@@ -1050,184 +970,158 @@ public class Vision
 			{
 				if (map[j][i])
 				{
-					boolean Continue = true;// Messy code to check if point was in rectangle
-					for (Particle particle : toReturn)
+					Particle particle = new Particle(i, j, new boolean[1][1]);
+					particle.map[0][0] = true;
+					boolean change = true;
+					Particle expansion = new Particle(
+							(int) (particle.getX()),
+							(int) (particle.getY()), new boolean[1][1]);
+					if (particle.getX() > 0)
 					{
-						if (particle.globalInMap(i, j))
-						{
-							if (particle.getGlobalValue(i, j))// Don't create a new rectangle if it already is in one
-							{
-								Continue = false;
-								break;
-							}
-						}
+						expansion.expandLeft();
+						expansion.setGlobalValue(
+								(int) (particle.getX() - 1),
+								(int) (particle.getY()), true);
 					}
-					for (Particle particle : smallParticles)
+					if (particle.getY() > 0)
 					{
-						if (particle.globalInMap(i, j))
-						{
-							if (particle.getGlobalValue(i, j))// Don't create a new rectangle if it already is in one
-							{
-								Continue = false;
-								break;
-							}
-						}
+						expansion.expandUp();
+						expansion.setGlobalValue((int) (particle.getX()),
+								(int) (particle.getY() - 1), true);
 					}
-					if (Continue)// Generates new rectangle
+					if (particle.getX() < map[0].length - 1)
 					{
-						Particle particle = new Particle(i, j, new boolean[1][1]);
-						particle.map[0][0] = true;
-						boolean change = true;
-						Particle expansion = new Particle(
-								(int) (particle.getX()),
-								(int) (particle.getY()), new boolean[1][1]);
-						if (particle.getX() > 0)
+						expansion.expandRight();
+						expansion.setGlobalValue(
+								(int) (particle.getX() + 1),
+								(int) (particle.getY()), true);
+					}
+					if (particle.getY() < map.length - 1)
+					{
+						expansion.expandDown();
+						expansion.setGlobalValue((int) (particle.getX()),
+								(int) (particle.getY() + 1), true);
+					}
+					int x;
+					int y;
+					while (change)
+					{
+						Particle next = new Particle((int) (expansion.getX()),(int) (expansion.getY()),new boolean[expansion.map.length][expansion.map[0].length]);
+						change = false;
+						for (int k = 0; k < expansion.getWidth(); k++)
 						{
-							expansion.expandLeft();
-							expansion.setGlobalValue(
-									(int) (particle.getX() - 1),
-									(int) (particle.getY()), true);
-						}
-						if (particle.getY() > 0)
-						{
-							expansion.expandUp();
-							expansion.setGlobalValue((int) (particle.getX()),
-									(int) (particle.getY() - 1), true);
-						}
-						if (particle.getX() < map[0].length - 1)
-						{
-							expansion.expandRight();
-							expansion.setGlobalValue(
-									(int) (particle.getX() + 1),
-									(int) (particle.getY()), true);
-						}
-						if (particle.getY() < map.length - 1)
-						{
-							expansion.expandDown();
-							expansion.setGlobalValue((int) (particle.getX()),
-									(int) (particle.getY() + 1), true);
-						}
-						int x;
-						int y;
-						while (change)
-						{
-							Particle next = new Particle((int) (expansion.getX()),(int) (expansion.getY()),new boolean[expansion.map.length][expansion.map[0].length]);
-							change = false;
-							for (int k = 0; k < expansion.getWidth(); k++)
+							for (int l = 0; l < expansion.getHeight(); l++)
 							{
-								for (int l = 0; l < expansion.getHeight(); l++)
+								// Compare to picture map values to
+								// determine expansion
+								if (expansion.getLocalValue(k, l))
 								{
-									// Compare to picture map values to
-									// determine expansion
-									if (expansion.getLocalValue(k, l))
+									x = (int) (k + expansion.getX());
+									y = (int) (l + expansion.getY());
+									if (map[y][x])
 									{
-										x = (int) (k + expansion.getX());
-										y = (int) (l + expansion.getY());
-										if (map[y][x])
+										map[y][x]=false;
+										change = true;
+										// Expand the particle into that square
+										// Determines if size increase of particle required
+										if (x - particle.getX() < 0)
 										{
-											map[y][x]=false;
-											change = true;
-											// Expand the particle into that square
-											// Determines if size increase of particle required
-											if (x - particle.getX() < 0)
+											particle.expandLeft();
+										}
+										if (x - particle.getX() >= particle.getWidth())
+										{
+											particle.expandRight();
+										}
+										if (y - particle.getY() < 0)
+										{
+											particle.expandUp();
+										}
+										if (y - particle.getY() >= particle.getHeight())
+										{
+											particle.expandDown();
+										}
+										// Sets particle value
+										particle.setGlobalValue(x, y, true);
+										// Prepares expansion for next cycle
+										// Make surrounding position of new
+										// particle true
+										// Top Side
+										// Check if space in global map
+										if (y > 0)
+										{
+											// Check if expansion neccessary
+											while (y - 1 - next.getY() < 0)
 											{
-												particle.expandLeft();
+												next.expandUp();
 											}
-											if (x - particle.getX() >= particle.getWidth())
+											next.setGlobalValue(x, y - 1,
+													true);
+										}
+										// Left side
+										if (x > 0)
+										{
+											// Check if expansion neccessary
+											while (x - 1 - next.getX() < 0)
 											{
-												particle.expandRight();
+												next.expandLeft();
 											}
-											if (y - particle.getY() < 0)
+											next.setGlobalValue(x - 1, y,
+													true);
+										}
+										// Bottom side
+										if (y + 1 < map.length)
+										{
+											// Check if expansion neccessary
+											while (y + 1 - next.getY() >= next
+													.getHeight())
 											{
-												particle.expandUp();
+												next.expandDown();
 											}
-											if (y - particle.getY() >= particle.getHeight())
+											next.setGlobalValue(x, y + 1,
+													true);
+										}
+										// Right Side
+										if (x + 1 < map[0].length)
+										{
+											// Check if expansion neccessary
+											while (x + 1 - next.getX() >= next.getWidth())
 											{
-												particle.expandDown();
+												next.expandRight();
 											}
-											// Sets particle value
-											particle.setGlobalValue(x, y, true);
-											// Prepares expansion for next cycle
-											// Make surrounding position of new
-											// particle true
-											// Top Side
-											// Check if space in global map
-											if (y > 0)
-											{
-												// Check if expansion neccessary
-												while (y - 1 - next.getY() < 0)
-												{
-													next.expandUp();
-												}
-												next.setGlobalValue(x, y - 1,
-														true);
-											}
-											// Left side
-											if (x > 0)
-											{
-												// Check if expansion neccessary
-												while (x - 1 - next.getX() < 0)
-												{
-													next.expandLeft();
-												}
-												next.setGlobalValue(x - 1, y,
-														true);
-											}
-											// Bottom side
-											if (y + 1 < map.length)
-											{
-												// Check if expansion neccessary
-												while (y + 1 - next.getY() >= next
-														.getHeight())
-												{
-													next.expandDown();
-												}
-												next.setGlobalValue(x, y + 1,
-														true);
-											}
-											// Right Side
-											if (x + 1 < map[0].length)
-											{
-												// Check if expansion neccessary
-												while (x + 1 - next.getX() >= next.getWidth())
-												{
-													next.expandRight();
-												}
-												next.setGlobalValue(x + 1, y,true);
-											}
+											next.setGlobalValue(x + 1, y,true);
 										}
 									}
 								}
 							}
-							if (change)
-							{
-								next.shorten();
-								expansion = next;
-							}
 						}
-						if (particle.count >= minimumAlive)
+						if (change)
 						{
-							//Special ratio check
-							if(particle.getHeight()/particle.getWidth()<maxRatio)
+							next.shorten();
+							expansion = next;
+						}
+					}
+					if (particle.count >= minimumAlive)
+					{
+						//Special ratio check
+						if(particle.getHeight()/particle.getWidth()<maxRatio)
+						{
+							if(particle.getWidth()/particle.getHeight()<maxRatio)
 							{
-								if(particle.getWidth()/particle.getHeight()<maxRatio)
+								for(int k=largeParticleIndex;k<largeMinAlive.length;k++)
 								{
-									for(int k=largeParticleIndex;k<largeMinAlive.length;k++)
+									if(k>=0)
 									{
-										if(k>=0)
+										if(particle.count>largeMinAlive[k])
 										{
-											if(particle.count>largeMinAlive[k])
-											{
-												largeParticleIndex=k;
-											}
-											else
-											{
-												break;
-											}
+											largeParticleIndex=k;
+										}
+										else
+										{
+											break;
 										}
 									}
-									toReturn.add(particle);
 								}
+								toReturn.add(particle);
 							}
 						}
 					}
@@ -1341,7 +1235,7 @@ public class Vision
 		boolean[][] map = new boolean[image.length][image[0].length];
 		//map = useHsl(map, image, hmin, hmax, smin, lmin, lmax);
 		map=useHsv(map, image, hmin, hmax, smin, smax, vmin, vmax);
-		map=advancedHSV(map, image);
+		//map=advancedHSV(map, image);
 		// LightHSL is experimental idea, more lenient towards pixels surrounded by alive cells
 		// map=lightHsl(map,image, hmin, hmax, smin, lmin, lmax);
 		return map;
@@ -1414,16 +1308,17 @@ public class Vision
 	}
 	private boolean[][] useHsv(boolean[][] map, int[][][] image, int hmin, int hmax, int smin, int smax, int vmin, int vmax)
 	{
-		//Modified code for useHsl
+		//Modified code from useHsl
 		for (int i = 0; i < image.length; i++)
 		{
 			for (int j = 0; j < image[0].length; j++)
 			{
-				boolean valid = false;
+				boolean valid = true;
 				int red = image[i][j][0];
 				int green = image[i][j][1];
 				int blue = image[i][j][2];
-				int[] hsl = getHSV(red, green, blue);
+				int[] hsv = getHSV(red, green, blue);
+				/*
 				if (hsl[0] >= hmin && hsl[0] <= hmax)
 				{
 					if (hsl[1] >= smin)
@@ -1433,6 +1328,23 @@ public class Vision
 							valid = true;
 						}
 					}
+				}
+				*/
+				int allowance=(int) ((-7.0/10.0)*hsv[1]+100);
+				//While loop stupid way to exit checker when done
+				while(true)
+				{
+					if(Math.abs(hsv[0]-175)>allowance)
+					{
+						valid=false;
+						break;
+					}
+					if(hsv[2]<50)
+					{
+						valid=false;
+						break;
+					}
+					break;
 				}
 				map[i][j] = valid;
 			}
@@ -1555,13 +1467,13 @@ public class Vision
 			switch(maxType)
 			{
 				case RED:
-					hsv[0]=(int) (30.0*(((g-b)/delta)%6));
+					hsv[0]=(int) (60.0*(((g-b)/delta)%6));
 					break;
 				case GREEN:
-					hsv[0]=(int) (30.0*(((b-r)/delta)+2));
+					hsv[0]=(int) (60.0*(((b-r)/delta)+2));
 					break;
 				case BLUE:
-					hsv[0]=(int) (30.0*(((r-g)/delta)+4));
+					hsv[0]=(int) (60.0*(((r-g)/delta)+4));
 					break;
 				default:
 					assert false;//OOH! Fancy Keywords! But realisticly, if it gets here, the program is messed up. A lot.
@@ -1573,9 +1485,9 @@ public class Vision
 		}
 		else
 		{
-			hsv[1]=(int) (255.0*delta/max);
+			hsv[1]=(int) Math.round(100.0*delta/max);
 		}
-		hsv[2]=(int) (255.0*max);
+		hsv[2]=(int) Math.round(100.0*max);
 		return hsv;
 	}
 	public static boolean[][] copyOf(boolean[][] original) 

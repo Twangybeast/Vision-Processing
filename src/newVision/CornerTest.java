@@ -14,7 +14,7 @@ import javax.swing.JFrame;
 
 import visionCore.Particle;
 import visionCore.Vision;
-import algorithm.RectangleAlgorithm;
+import algorithm.FeatureDetector;
 import algorithm.RectangleController;
 import keyboard.DownloadImages;
 import keyboard.KeyboardInput;
@@ -56,12 +56,14 @@ public class CornerTest extends JFrame implements Runnable
 	private int previousImage=-1;
 	private Thread t;
 	private KeyboardInput keyboard=new KeyboardInput();
-	private RectangleAlgorithm ra=new RectangleAlgorithm();
-	private RectangleController rc=new RectangleController();
+	private FeatureDetector fd=new FeatureDetector(4);
 	private boolean[][] map=new boolean[1][1];
 	Vision2 v2=new Vision2();
 	public double[][] map2;
-	ArrayList<Point> corners=new ArrayList<Point>();
+	ArrayList<Point> corners=null;
+	int[][] cornerScore=null;
+	double wMult=2.0;
+	double hMult=2.0;
 	public static void main(String[] args)
 	{
 		CornerTest ct=new CornerTest();
@@ -71,7 +73,7 @@ public class CornerTest extends JFrame implements Runnable
 	{
 		image=getImage(imageNumber);
 		pack();
-		setSize((getInsets().left*2)+(image.getWidth()*2),(getInsets().top+getInsets().bottom)+(image.getHeight()*2));
+		setSize((getInsets().left*2)+(int)(image.getWidth()*wMult),(getInsets().top+getInsets().bottom)+(int)(image.getHeight()*hMult));
 		t=new Thread(this);
 		setDefaultCloseOperation(EXIT_ON_CLOSE);
 		addKeyListener(keyboard);
@@ -107,11 +109,11 @@ public class CornerTest extends JFrame implements Runnable
 	public void execute()
 	{
 		keyboard.updateKeys();
-		if(keyboard.keyDown(KeyEvent.VK_A))
+		if(keyboard.keyOnce(KeyEvent.VK_A))
 		{
 			imageNumber--;
 		}
-		if(keyboard.keyDown(KeyEvent.VK_D))
+		if(keyboard.keyOnce(KeyEvent.VK_D))
 		{
 			System.out.println("Key Registered");
 			imageNumber++;
@@ -129,25 +131,30 @@ public class CornerTest extends JFrame implements Runnable
 		long t3=System.nanoTime();
 		image=getImage(imageNumber);
 		System.out.printf("Time for loading image is [%d] ms\n",(System.nanoTime()-t3)/1000000);
-		ra=new RectangleAlgorithm();
-		rc=new RectangleController(4);
 		v2=new Vision2();
 		long t2=System.nanoTime();
 		map2=v2.createMap(image);
 		System.out.printf("Time for map: [%f]\n",(double)((System.nanoTime()-t2)/1000000));
 		long t1=System.nanoTime();
-		int[][] fc;
-		fc=ra.findCorners(map2);
-		System.out.printf("Time for Corners is [%d]\n",(System.nanoTime()-t1)/1000000);
-		t1=System.nanoTime();
-		corners=RectangleAlgorithm.filterCorners(fc);
 		System.out.printf("Time for Filter is [%d]\n",(System.nanoTime()-t1)/1000000);
-		corners=rc.process(map2);
-		System.out.printf("Time for RC is [%d]\n",(System.nanoTime()-t1)/1000000);
+		fd.setMap(map2);
+		fd.setFindCorners(true);
+		Thread t=new Thread(fd);
+		t.start();
+		try
+		{
+			t.join();
+		} catch (InterruptedException e)
+		{
+			e.printStackTrace();
+		}
+		corners=fd.corners;
+		cornerScore=fd.cornerScore;
+		System.out.printf("Time for Harris Corner is [%d]\n",(System.nanoTime()-t1)/1000000);
 	}
 	public void paint(Graphics frameG)
 	{
-		BufferedImage canvas=new BufferedImage(image.getWidth()*2,image.getHeight()*2,BufferedImage.TYPE_INT_RGB);
+		BufferedImage canvas=new BufferedImage((int)(image.getWidth()*wMult),(int)(image.getHeight()*hMult),BufferedImage.TYPE_INT_RGB);
 		Graphics g=canvas.getGraphics();
 		//g.drawImage(image, 0, 0, null);
 		final int cornerCircleRad=3;
@@ -166,9 +173,11 @@ public class CornerTest extends JFrame implements Runnable
 				}
 				int s=(int) (multiplier*255.0);
 				g.setColor(new Color(s,s,s));
-				//g.fillRect(j, i, 1, 1);
+				g.fillRect(j+image.getWidth(), i, 1, 1);
+				g.fillRect(j, i+image.getHeight(), 1, 1);
 			}
 		}
+		/*
 		int[][][] rgb=v2.getArray(image);
 		for(int i=0;i<rgb.length;i++)
 		{
@@ -182,20 +191,68 @@ public class CornerTest extends JFrame implements Runnable
 				g.fillRect(j+image.getWidth(), i, 1, 1);
 			}
 		}
-		
+		*/
 		//Final Corner Drawer
 		g.setColor(Color.RED);
 		final int cross=3;
-		for(Point p:corners)
+		for(Point p: corners)
 		{
-			g.fillRect(p.x-cross, p.y,(cross*2)+1, 1);
-			g.fillRect(p.x, p.y-cross, 1, (cross*2)+1);
-			//g.drawOval(p.x-cornerCircleRad, p.y-cornerCircleRad, cornerCircleRad*2, cornerCircleRad*2);
-			//g.drawOval(p.x-cornerCircleRad+image.getWidth(), p.y-cornerCircleRad, cornerCircleRad*2, cornerCircleRad*2);
-			g.fillRect(p.x-cross+image.getWidth(), p.y,(cross*2)+1, 1);
-			g.fillRect(p.x+image.getWidth(), p.y-cross, 1, (cross*2)+1);
+			//g.fillRect(p.x-cross, p.y,(cross*2)+1, 1);
+			//g.fillRect(p.x, p.y-cross, 1, (cross*2)+1);
+			//g.drawOval(p.x-cornerCp.yrcleRad, p.y-cornerCp.yrcleRad, cornerCp.yrcleRad*2, cornerCp.yrcleRad*2);
+			//g.drawOval(p.x-cornerCp.yrcleRad+p.ymage.getWp.ydth(), p.y-cornerCp.yrcleRad, cornerCp.yrcleRad*2, cornerCp.yrcleRad*2);
+			//g.fillRect(p.x-cross+image.getWidth(), p.y,(cross*2)+1, 1);
+			//g.fillRect(p.x+image.getWidth(), p.y-cross, 1, (cross*2)+1);
+			g.fillRect(p.x-cross, p.y+image.getHeight(),(cross*2)+1, 1);
+			g.fillRect(p.x, p.y-cross+image.getHeight(), 1, (cross*2)+1);
+		}
+		int max=0;
+		for(int i=0;i<cornerScore.length;i++)
+		{
+			for(int j=0;j<cornerScore[0].length;j++)
+			{
+				if(cornerScore[i][j]>max)
+				{
+					max=cornerScore[i][j];
+				}
+			}
+		}
+		max=max/5;
+		for(int i=0;i<cornerScore.length;i++)
+		{
+			for(int j=0;j<cornerScore[0].length;j++)
+			{
+				g.setColor(getHeatColor(cornerScore[i][j], max));
+				g.fillRect(j, i, 1, 1);
+			}
 		}
 		frameG.drawImage(canvas, getInsets().left, getInsets().top, null);
+	}
+	public Color getHeatColor(int value, int max)
+	{
+		double ratio=value/(max*1.0);
+		ratio=Math.max(ratio,0.0);
+		ratio=Math.min(ratio,1.0);
+		final Color[] heat=
+			{
+				Color.BLACK,
+				Color.BLUE,
+				Color.CYAN,
+				Color.GREEN,
+				Color.YELLOW,
+				Color.RED
+			};
+		int c=(int) Math.floor(ratio*(heat.length-1));
+		if(c==heat.length-1)
+		{
+			return heat[heat.length-1];
+		}
+		return gradBetween(heat[c],heat[c+1],ratio*(heat.length-1)-c);
+	}
+	private Color gradBetween(Color c1, Color c2, double rat)
+	{
+		Color color=new Color((int)(((c2.getRed()-c1.getRed())*rat)+c1.getRed()), (int)(((c2.getGreen()-c1.getGreen())*rat)+c1.getGreen()), (int)(((c2.getBlue()-c1.getBlue())*rat)+c1.getBlue()));
+		return color;
 	}
 	@Override
 	public void run()
