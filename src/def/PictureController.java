@@ -1,3 +1,4 @@
+package def;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -10,9 +11,9 @@ import keyboard.DownloadImages;
 
 public class PictureController implements Runnable
 {
-	static String path=System.getProperty("user.home")+System.getProperty(File.separator)+"Downloads"+System.getProperty(File.separator)+"RealFullField"+System.getProperty(File.separator);
+	static String path=System.getProperty("user.home")+File.separator+"Downloads"+File.separator+"RealFullField"+File.separator;
 	int imageNumber=0;
-	int[] images={ 0, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15,
+	public static int[] images={ 0, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15,
 			16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
 			33, 55, 56, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71,
 			72, 73, 74, 75, 76, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90,
@@ -51,10 +52,10 @@ public class PictureController implements Runnable
 	{
 		path=System.getProperty("user.home")+File.separator+"Downloads"+File.separator+"RealFullField"+File.separator;
 	}
+	PictureTester frame=new PictureTester(getImage(images[imageNumber]));
 	public void control()
 	{
 		findPath();
-		PictureTester frame=new PictureTester(getImage(images[imageNumber]));
 		Thread t=new Thread(this);
 		t.start();
 		while(true)
@@ -73,11 +74,13 @@ public class PictureController implements Runnable
 				}
 				System.out.println("Picture: "+imageNumber+" \t--   "+images[imageNumber]+".jpg");
 				frame.setImage(getImage(images[imageNumber]));
+				frame.setTitle("Image: "+imageNumber+" - "+images[imageNumber]+".jpg");
 			}
 			if(newImage)
 			{
 				newImage=false;
 				frame.setImage(getImage(images[imageNumber]));
+				frame.setTitle("Image: "+imageNumber+" - "+images[imageNumber]+".jpg");
 			}
 			try {
 				Thread.sleep(75);
@@ -131,6 +134,7 @@ public class PictureController implements Runnable
 				if(newImage>=0&&newImage<images.length)
 				{
 					imageNumber=newImage;
+					frame.setTitle("Image: "+imageNumber+" - "+images[imageNumber]+".jpg");
 					this.newImage=true;
 					break;
 				}

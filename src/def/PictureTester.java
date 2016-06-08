@@ -1,3 +1,4 @@
+package def;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Insets;
@@ -63,6 +64,7 @@ public class PictureTester extends JFrame implements Runnable
 			if(processImage)
 			{
 				processImage=false;
+				
 				v=new Vision();
 				map=v.createMap(image);
 				double[] target=v.process(image);

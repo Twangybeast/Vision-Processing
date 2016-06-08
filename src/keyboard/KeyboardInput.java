@@ -29,7 +29,6 @@ public class KeyboardInput implements KeyListener
 				{
 					keys[i]=KeyState.PRESSED;
 					//System.out.println(i+" was pressed");
-					
 				}
 				else
 				{

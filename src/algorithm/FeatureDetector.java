@@ -287,6 +287,10 @@ public class FeatureDetector implements Runnable
 	}
 	public static double[][] divide2(double[][] input, int div)
 	{
+		if(input.length<1)
+		{
+			return new double[0][];
+		}
 		double[][] result=new double[input.length][input[0].length];
 		for(int i=0;i<input.length;i++)
 		{

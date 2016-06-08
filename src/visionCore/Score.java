@@ -1,5 +1,7 @@
 package visionCore;
 
+import java.util.ArrayList;
+
 public class Score
 {
 	ScoreType type;
@@ -8,6 +10,10 @@ public class Score
 	public double[] yprofile;
 	private boolean evaluated=false;
 	private int score=-1;
+	private final static int[] GAUSS={
+		5, 12, 15, 12, 5
+	};
+	private final static int GAUSS_DIV=49;
 	public Score(double ratio, ScoreType type)
 	{
 		this.type=type;
@@ -16,6 +22,8 @@ public class Score
 	public Score(double[] xprofile, double[] yprofile)
 	{
 		this.type=ScoreType.PROFILE;
+		this.xprofile=xprofile;
+		this.yprofile=yprofile;
 	}
 	public int getScore()
 	{
@@ -33,22 +41,255 @@ public class Score
 				score=calcScore(ratio, 1.6, 0.9);
 				break;
 			case COVERAGE:
-				score=calcScore(ratio, 1.0/3.0, 0.1858);
+				//score=calcScore(ratio, 1.0/3.0, 0.1858);
+				score=(int) limit((int) (Math.pow(Math.abs((1.0/3.0)-ratio)/0.2,2)*100));
 				break;
 			case MOMENT:
-				score=calcScore(ratio, 0.28, 0.5);
+				score=calcScore(ratio, 0.5, 0.3);
 				break;
 			case PROFILE:
-				
+				//score=profileScore();
+				score=profileScore2();
 				break;
 		}
 		evaluated=true;
+	}
+	private int limit(int d)
+	{
+		return (int) Math.max(0.0, Math.min(100.0, d));
 	}
 	private int calcScore(double ratio, double ideal, double maxDev)
 	{
 		return (int) Math.max(0.0,Math.min(100.0,((Math.abs(ratio-ideal)/maxDev)*100)));
 	}
-	
+	private int profileScore2()
+	{
+		int score=0;
+		xprofile=normalizeProfile(xprofile);
+		yprofile=normalizeProfile(yprofile);
+		final int[] derivKernel=
+			{
+				-4, -3, 0, 3, 4
+			};
+		final int derivDiv=7;
+		final double zero_threshold=0.07;
+		double[] xderiv=conv(xprofile, derivKernel, derivDiv);
+		double[] yderiv=conv(yprofile, derivKernel, derivDiv);
+		//Find minimum and maximum peaks. Find max, mark surrounding 20 out of bounds for max
+		boolean[] xmaxs=new boolean[xderiv.length];
+		boolean[] ymaxs=new boolean[xderiv.length];
+		boolean[] xmins=new boolean[xderiv.length];
+		boolean[] ymins=new boolean[xderiv.length];
+		//First find maximums
+		boolean change=true;
+		final double peak_threshold=0.35;
+		//Note: weird i starting values to ensure neighboring indexs are in the array
+		for(int i=1;i<xderiv.length-1;i++)
+		{
+			if(xderiv[i]>=peak_threshold)
+			{
+				if(xderiv[i]>xderiv[i-1]&&xderiv[i]>xderiv[i+1])
+				{
+					xmaxs[i]=true;
+				}
+			}
+			else
+			{
+				if(xderiv[i]<=-1*peak_threshold)
+				{
+					if(xderiv[i]<xderiv[i-1]&&xderiv[i]<xderiv[i+1])
+					{
+						xmins[i]=true;
+					}
+				}
+			}
+			if(yderiv[i]>=peak_threshold)
+			{
+				if(yderiv[i]>yderiv[i-1]&&yderiv[i]>yderiv[i+1])
+				{
+					ymaxs[i]=true;
+				}
+			}
+			else
+			{
+				if(yderiv[i]<=-1*peak_threshold)
+				{
+					if(yderiv[i]<yderiv[i-1]&&yderiv[i]<yderiv[i+1])
+					{
+						ymins[i]=true;
+					}
+				}
+			}
+		}
+		//Once we have all the peaks, we have them search for a pair. Max's need a min on the right. For each pair, the place inbetween is it.
+		//If a peak does not have a pair, we mark the zero in the appropriate direction as it.
+		ArrayList<int[]> xpairs=new ArrayList<>();
+		ArrayList<int[]> ypairs=new ArrayList<>();
+		ArrayList<Integer> xpeaks=new ArrayList<>();
+		ArrayList<Integer> ypeaks=new ArrayList<>();
+		for(int i=0;i<xmaxs.length;i++)
+		{
+			//X Profile
+			//With maxs, look for next min to the right.
+			if(xmaxs[i])
+			{
+				boolean found=false;
+				for(int j=i+1;j<xmins.length;j++)
+				{
+					if(xmins[j])
+					{
+						xmins[j]=false;
+						int[] pair=new int[2];
+						pair[0]=i;
+						pair[1]=j;
+						xpairs.add(pair);
+						found=true;
+						break;
+					}
+				}
+				if(!found)
+				{
+					//Look for zero
+					for(int j=i+1;j<xmins.length;j++)
+					{
+						if(Math.abs(xderiv[j])<zero_threshold)
+						{
+							xpeaks.add(j);
+							break;
+						}
+					}
+				}
+			}
+			//Y Profile, copy pasted version of xprofile
+			if(ymaxs[i])
+			{
+				boolean found=false;
+				for(int j=i+1;j<ymins.length;j++)
+				{
+					if(ymins[j])
+					{
+						ymins[j]=false;
+						int[] pair=new int[2];
+						pair[0]=i;
+						pair[1]=j;
+						ypairs.add(pair);
+						found=true;
+						break;
+					}
+				}
+				if(!found)
+				{
+					//Look for zero
+					for(int j=i+1;j<ymins.length;j++)
+					{
+						if(Math.abs(yderiv[j])<zero_threshold)
+						{
+							ypeaks.add(j);
+							break;
+						}
+					}
+				}
+			}
+		}
+		//First, process all paired peaks.
+		for(int[] pair : xpairs)
+		{
+			xpeaks.add((pair[0]+pair[1])/2);
+		}
+		for(int[] pair : ypairs)
+		{
+			ypeaks.add((pair[0]+pair[1])/2);
+		}
+		//Next, we look for unprocessed mins and look for their nearest zero
+		for(int i=0;i<xmins.length;i++)
+		{
+			//Same thing. X Profile, then Y Profile C & P ed
+			if(xmins[i])
+			{
+				for(int j=i-1;j>=0;j--)
+				{
+					if(Math.abs(xderiv[j])<zero_threshold)
+					{
+						xpeaks.add(j);
+						break;
+					}
+				}
+			}
+			//Y Profile
+			if(ymins[i])
+			{
+				for(int j=i-1;j>=0;j--)
+				{
+					if(Math.abs(yderiv[j])<zero_threshold)
+					{
+						ypeaks.add(j);
+						break;
+					}
+				}
+			}
+		}
+		if(xpeaks.size()!=2)
+		{
+			score=score+Math.abs(xpeaks.size()-2)*100;
+		}
+		else
+		{
+			int peak1=Math.min(xpeaks.get(0), xpeaks.get(1));
+			int peak2=Math.max(xpeaks.get(0), xpeaks.get(1));
+			int difference=Math.abs(peak1-(100-peak2));
+			score=score+difference;
+			
+			score=(int) (score+(((xprofile[50]-0.14)*100)));
+			score=(int) (score+(((1.0-xprofile[peak1])*50)));
+			score=(int) (score+(((1.0-xprofile[peak2])*50)));
+			
+		}
+		if(ypeaks.size()!=1)
+		{
+			score=score+Math.abs(ypeaks.size()-1)*100;
+		}
+		else
+		{
+			int peak=ypeaks.get(0);
+			score=(int) (score+(((yprofile[50]-0.185)*100)));
+			score=(int) (score+(((1.0-yprofile[peak])*50)));
+		}
+		score=limit(score);
+		return score;
+	}
+	private double[] normalizeProfile(double[] profile)
+	{
+		double[] normalized=new double[profile.length];
+		normalized=conv(profile, GAUSS, GAUSS_DIV);
+		
+		return normalized;
+	}
+	private double[] conv(double[] profile, int[] mask, int div)
+	{
+		double[] conv=new double[profile.length];
+		int index=(mask.length-1)/2;
+		for(int i=0;i<profile.length;i++)
+		{
+			double total=0;
+			for(int j=0;j<mask.length;j++)
+			{
+				int current=(i+(j-index));
+				double value;
+				if(current>=0&&current<profile.length)
+				{
+					value=profile[current];
+				}
+				else
+				{
+					value=profile[i];
+				}
+				total=total+(value*mask[j]);
+			}
+			total=total/(div*1.0);
+			conv[i]=total;
+		}
+		return conv;
+	}
 	//Don't put anything else below this comment
  	final double[] profileMaxX = { 0.5325419745487893, 0.7722804963523211,
 			0.9437657370298176, 1.0232068477333296, 1.049626613273606,
