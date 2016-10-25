@@ -319,4 +319,27 @@ public class Particle
 		this.x=x;
 		this.y=y;
 	}
+	public void globalExpand(int x, int y)
+	{
+		while(x<this.x)
+		{
+			expandLeft();
+		}
+		while(x>=this.x+getWidth())
+		{
+			expandRight();
+		}
+		while(y<this.y)
+		{
+			expandUp();
+		}
+		while(y>=this.y+getHeight())
+		{
+			expandDown();
+		}
+	}
+	public void localExpand(int x, int y)
+	{
+		globalExpand(x+this.x, y+this.y);
+	}
 }

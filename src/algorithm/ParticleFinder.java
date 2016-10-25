@@ -9,10 +9,15 @@ import visionCore.RGB;
 
 public class ParticleFinder
 {
+	static int[] largeMinAlive={300,500};
+	final static double[] largePercent={largeMinAlive[0]/(640.0*480.0),largeMinAlive[1]/(640.0*480.0)};
+	final static int furthestDistance = 30;
+	final double totalPercent = 0.0006510416666666666;
+	final static double maxRatio=3.5;
 	public static ArrayList<Particle> findParticles(BufferedImage image)
 	{
-		short[][][] hsvArray=getHSVArray(image);
-		if(hsvArray.length<1)
+		short[][][] map=getHSVArray(image);
+		if(map.length<1)
 		{
 			System.err.println("Image empty.");
 			return new ArrayList<Particle>();
@@ -25,12 +30,12 @@ public class ParticleFinder
 		 * -Reduce blur on boundaries.
 		 * -Solidify particle more?
 		 */
-		Particle general=new Particle(0,0,new boolean[hsvArray.length][hsvArray[0].length]);
-		for(int i=0;i<hsvArray.length;i++)
+		Particle general=new Particle(0,0,new boolean[map.length][map[0].length]);
+		for(int i=0;i<map.length;i++)
 		{
-			for(int j=0;j<hsvArray.length;j++)
+			for(int j=0;j<map[0].length;j++)
 			{
-				short[] hsv=hsvArray[i][j];
+				short[] hsv=map[i][j];
 				boolean valid=true;
 				int allowance=(int) ((-7.0/10.0)*hsv[1]+100);
 				allowance=Math.max(allowance, 15);
@@ -51,7 +56,7 @@ public class ParticleFinder
 				general.map[i][j] = valid;
 			}
 		}
-		boolean[][][] contrast=new boolean[hsvArray.length][hsvArray[0].length][4];
+		boolean[][][] contrast=new boolean[map.length][map[0].length][4];
 		/*
 		 * Contrast:
 		 * x y index
@@ -96,12 +101,19 @@ public class ParticleFinder
 						short[] neighbor=null;
 						int x1=x+xd;
 						int y1=y+yd;
-						if(x1>=0&&x1<hsvArray[0].length&&y1>=0&&y1<hsvArray.length)
+						if(x1>=0&&x1<map[0].length&&y1>=0&&y1<map.length)
 						{
-							neighbor=hsvArray[y1][x1];
-							if(getContrast(hsvArray[y][x], neighbor)<=CONTRAST_THRESHOLD)
+							if(general.getLocalValue(x1, y1))
 							{
-								contrast[y][x][index]=true;
+								neighbor=map[y1][x1];
+								if(getContrast(map[y][x], neighbor)<=CONTRAST_THRESHOLD)
+								{
+									contrast[y][x][index]=true;
+								}
+							}
+							else
+							{
+								contrast[y][x][index]=false;
 							}
 						}
 						else
@@ -114,7 +126,117 @@ public class ParticleFinder
 			}
 		}
 		ArrayList<Particle> particles=new ArrayList<>();
-		
+		//Actually find particles now
+		int[] largeMinAlive=new int[largePercent.length];
+		for(int i=0;i<largePercent.length;i++)
+		{
+			largeMinAlive[i]=(int) (largePercent[i]*map.length*map[0].length);
+		}
+		int minimumAlive = 200;		
+		byte largeParticleIndex=-1;
+		for(int xi=0;xi<general.getWidth();xi++)
+		{
+			for(int yi=0;yi<general.getHeight();yi++)
+			{
+				if(general.getLocalValue(xi, yi))
+				{
+					Particle particle=new Particle(xi, yi, new boolean[1][1]);
+					particle.map[0][0]=true;
+					general.setLocalValue(xi, yi, false);
+					Particle expansion=new Particle(xi, yi, new boolean[1][1]);
+					expansion.map[0][0]=true;
+					boolean change=false;
+					do
+					{
+						change=false;
+						Particle next=new Particle(particle);
+						for(int xe=0;xe<expansion.getWidth();xe++)
+						{
+							for(int ye=0;ye<expansion.getHeight();ye++)
+							{
+								if(expansion.getLocalValue(xe, ye))
+								{
+									for(int index=0;index<contrast[0][0].length;index++)
+									{
+										if(contrast[ye+expansion.y][xe+expansion.x][index])
+										{
+											int xd;
+											int yd;
+											if(index>1)
+											{
+												yd=2*(index-2)-1;
+												xd=0;
+											}
+											else
+											{
+												xd=(2*index)-1;
+												yd=0;
+											}
+											int x=xe+xd+expansion.x;
+											int y=ye+yd+expansion.y;
+											if(general.getLocalValue(x, y))
+											{
+												change=true;
+												particle.globalExpand(x, y);
+												particle.setGlobalValue(x, y, true);
+												general.setLocalValue(x, y, false);
+												next.globalExpand(x, y);
+												next.setGlobalValue(x, y, true);
+											}
+										}
+									}
+								}
+							}
+						}
+						if(change)
+						{
+							expansion=next;
+						}
+					}
+					while(change);
+					if (particle.count >= minimumAlive)
+					{
+						//Special ratio check
+						if(particle.getHeight()/particle.getWidth()<maxRatio)
+						{
+							if(particle.getWidth()/particle.getHeight()<maxRatio)
+							{
+								for(byte k=largeParticleIndex;k<largeMinAlive.length;k++)
+								{
+									if(k>=0)
+									{
+										if(particle.count>largeMinAlive[k])
+										{
+											largeParticleIndex=k;
+										}
+										else
+										{
+											break;
+										}
+									}
+								}
+								particles.add(particle);
+							}
+						}
+					}
+				}
+			}
+		}
+		if(largeParticleIndex>-1)
+		{
+			ArrayList<Particle> toRemove=new ArrayList<Particle>();
+			for(Particle particle: particles)
+			{
+				if(particle.count<largeMinAlive[largeParticleIndex])
+				{
+					toRemove.add(particle);
+				}
+			}
+			for(Particle particle: toRemove)
+			{
+				particles.remove(particle);
+			}
+		}
 		return particles;
 	}
 	public static int getContrast(short[] hsvArray, short[] neighbor)

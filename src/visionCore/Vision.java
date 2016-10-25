@@ -13,8 +13,9 @@ import algorithm.*;
 public class Vision
 {
 	/*
-	 * TO DO LIST					
-	 * [ ] Figure out wtf moment of inertia is		
+	 * TO DO LIST	
+	 * [ ] Clean up boolean map with gaussian mask				
+	 * [ ] Understand multiple targets available, select least angled.	
 	 */
 	// Because some code was copy pas- *ahem* written by me, arrays that
 	// represent images are weird as they work as map[y][x]
@@ -85,28 +86,12 @@ public class Vision
 	{
 		System.out.println("----------------------NEW IMAGE-------------------------");
 		long t1=System.nanoTime();
-		FeatureDetector fd=new FeatureDetector(4);
-		Vision2 v2=new Vision2();
-		Thread t=new Thread(fd);
-		fd.setFindCorners(true);
-		fd.setMap(v2.createMap(im));
-		t.start();
-		try
-		{
-			t.join();
-		} 
-		catch (InterruptedException e)
-		{
-			System.err.println("Thread interrupted. Results likely invalid.");
-			e.printStackTrace();
-		}
-		this.corners_display=fd.corners;
-		boolean[][] map=createMap(im);
-		double[] target=core(map,fd.corners);
+		boolean[][] map=createMap(im);// ~ 80 ms (Multi - Threadable)
+		double[] target=core(map); // ~ 60 ms (Acceptable Time)
 		System.out.printf("Total Time: [%d]\n", (int) ((System.nanoTime()-t1)/1000000));
 		return target;
 	}
-	public double[] core(boolean[][] map, ArrayList<Point> corners)
+	public double[] core(boolean[][] map)
 	{
 		long start=System.currentTimeMillis();
 		for(int i=0;i<largePercent.length;i++)
@@ -141,7 +126,7 @@ public class Vision
 				switch(SCORE_PATTERN[j])
 				{
 					case EQUIV_RECT:
-						s=equivRect(particles.get(i),corners);
+						s=diagRect(particles.get(i));
 						break;
 					case COVERAGE:
 						s=coverage(particles.get(i));
@@ -218,6 +203,248 @@ public class Vision
 		}
 		System.out.println("Core Time: "+(System.currentTimeMillis()-start));
 		return target;
+	}
+	public void sideProfileDeriv(Particle particle)
+	{
+		//Using derivatives, finding corners becomes incredibly easy by analyzing the profiles of the side and transforming them into one dimension
+		/*
+		 * Corner order for reference
+		 * 		0	1
+		 * 
+		 * 		2	3
+		 * Profile Naming Scheme:
+		 * profL = Profile Left
+		 * left profile is from the left side
+		 * l/r ordered top to down
+		 * u/d ordered left to right
+		 */
+		int[] profL = new int[particle.getHeight()];
+		int[] profR = new int[profL.length];
+		int[] profU = new int[particle.getWidth()];
+		int[] profD = new int[profU.length];
+		for(int i=0;i<profL.length;i++)
+		{
+			boolean found=false;
+			for(int d = 0; d<particle.getWidth();d++)
+			{
+				if(particle.getLocalValue(d, i))
+				{
+					profL[i]=d;
+					found = true;
+					break;
+				}
+			}
+			if(!found)
+			{
+				System.err.printf("Critical: Found empty ROW during LEFT profile analysis at [%d]. ", i);
+				System.exit(1);
+			}
+			found=false;
+			for(int d = 0; d<particle.getWidth();d++)
+			{
+				if(particle.getLocalValue((particle.getWidth()-1)-d, i))
+				{
+					profR[i]=d;
+					found = true;
+					break;
+				}
+			}
+			if(!found)
+			{
+				System.err.printf("Critical: Found empty ROW during RIGHT profile analysis at [%d]. ", i);
+				System.exit(1);
+			}
+		}
+		for(int i=0;i<profU.length;i++)
+		{
+			boolean found=false;
+			for(int d = 0; d<particle.getHeight();d++)
+			{
+				if(particle.getLocalValue(i, d))
+				{
+					profU[i]=d;
+					found = true;
+					break;
+				}
+			}
+			if(!found)
+			{
+				System.err.printf("Critical: Found empty COLUMN during UP profile analysis at [%d]. ", i);
+				System.exit(1);
+			}
+			found=false;
+			for(int d = 0; d<particle.getHeight();d++)
+			{
+				if(particle.getLocalValue(i, (particle.getHeight()-1)-d))
+				{
+					profD[i]=d;
+					found = true;
+					break;
+				}
+			}
+			if(!found)
+			{
+				System.err.printf("Critical: Found empty COLUMN during DOWN profile analysis at [%d]. ", i);
+				System.exit(1);
+			}
+		}
+		//Analysis
+		System.out.println("Completed profile collection... Analyzing...");
+		int[] derivL = new int[profL.length];
+		int[] derivR = new int[profR.length];
+		int[] derivU = new int[profU.length];
+		int[] derivD = new int[profD.length];
+		int LRMAX = (particle.getWidth());
+		int UDMAX = (particle.getHeight());
+		final int[] mask = { -1 , 0, 1};
+		//L
+		derivL[0]=(mask[0]*(LRMAX-1))+(mask[2]*profL[1]);
+		for(int i = 1; i < derivL.length-1; i++)
+		{
+			derivL[i]= (mask[0]*(profL[i-1]))+(mask[2]*(profL[i+1]));
+		}
+		derivL[derivL.length-1]=(mask[0]*profL[derivL.length-2])+(mask[2]*LRMAX);
+		//R
+		derivR[0]=(mask[0]*(LRMAX-1))+(mask[2]*profR[1]);
+		for(int i = 1; i < derivR.length-1; i++)
+		{
+			derivR[i]= (mask[0]*(profR[i-1]))+(mask[2]*(profR[i+1]));
+		}
+		derivR[derivR.length-1]=(mask[0]*profR[derivR.length-2])+(mask[2]*LRMAX);
+		//U
+		derivU[0]=(mask[0]*(UDMAX-1))+(mask[2]*profU[1]);
+		for(int i = 1; i < derivU.length-1; i++)
+		{
+			derivU[i]= (mask[0]*(profU[i-1]))+(mask[2]*(profU[i+1]));
+		}
+		derivU[derivU.length-1]=(mask[0]*profU[derivU.length-2])+(mask[2]*UDMAX);
+		//D
+		derivD[0]=(mask[0]*(UDMAX-1))+(mask[2]*profD[1]);
+		for(int i = 1; i < derivD.length-1; i++)
+		{
+			derivD[i]= (mask[0]*(profD[i-1]))+(mask[2]*(profD[i+1]));
+		}
+		derivD[derivD.length-1]=(mask[0]*profD[derivD.length-2])+(mask[2]*UDMAX);
+		System.out.println("Derivatives Generated");
+		System.out.println("Generating 2nd Derivatives");
+		int[] deriv2L = new int[profL.length];
+		int[] deriv2R = new int[profR.length];
+		int[] deriv2U = new int[profU.length];
+		int[] deriv2D = new int[profD.length];
+		//L
+		deriv2L[0] = (mask[0] * derivL[0]) + (mask[2] * derivL[1]);
+		for (int i = 1; i < deriv2L.length - 1; i++)
+		{
+			deriv2L[i] = (mask[0] * (derivL[i - 1])) + (mask[2] * (derivL[i + 1]));
+		}
+		deriv2L[deriv2L.length - 1] = (mask[0] * derivL[deriv2L.length - 2]) + (mask[2] * derivL[deriv2L.length-1]);
+		//R
+		deriv2R[0] = (mask[0] * derivR[0]) + (mask[2] * derivR[1]);
+		for (int i = 1; i < deriv2R.length - 1; i++)
+		{
+			deriv2R[i] = (mask[0] * (derivR[i - 1])) + (mask[2] * (derivR[i + 1]));
+		}
+		deriv2R[deriv2R.length - 1] = (mask[0] * derivR[deriv2R.length - 2]) + (mask[2] * derivR[deriv2R.length-1]);
+		//U
+		deriv2U[0] = (mask[0] * derivU[0]) + (mask[2] * derivU[1]);
+		for (int i = 1; i < deriv2U.length - 1; i++)
+		{
+			deriv2U[i] = (mask[0] * (derivU[i - 1])) + (mask[2] * (derivU[i + 1]));
+		}
+		deriv2U[deriv2U.length - 1] = (mask[0] * derivU[deriv2U.length - 2]) + (mask[2] * derivU[deriv2U.length-1]);
+		//D
+		deriv2D[0] = (mask[0] * derivD[0]) + (mask[2] * derivD[1]);
+		for (int i = 1; i < deriv2D.length - 1; i++)
+		{
+			deriv2D[i] = (mask[0] * (derivD[i - 1])) + (mask[2] * (derivD[i + 1]));
+		}
+		deriv2D[deriv2D.length - 1] = (mask[0] * derivD[deriv2D.length - 2]) + (mask[2] * derivD[deriv2D.length-1]);
+		System.out.println("2nd Derivatives Generated");
+		/*
+		 * Notes:
+		 * 2nd Derivative Useless, data becomes too obscure
+		 * Use 1st Derivative, start from middle, find deviations from 0. From top view, use 2nd deviation in both directions
+		 * Deviations are >3, two types of deviations: Peaks and Slopes. 
+		 * Peaks are obvious, sharp upwards movements in a small period of space
+		 * Slopes trickier, slow, but significant upwards movement that continues moving. Represent less sharp angles. 
+		 */
+		final int SMALL_THRESHOLD=3;
+		final int BIG_THRESHOLD=7;
+		int norm;
+		//Left, finding coordinate
+		norm=derivL[derivL.length/2];
+		for(int i=(derivL.length)/2;i>=0;i--)
+		{
+			int max=Math.abs(norm-derivL[i]);
+			if(max>SMALL_THRESHOLD)
+			{
+				for(int j=i-1;j>=0;j--)
+				{
+					int dev=Math.abs(norm-derivL[j]);
+					if(dev>max)
+					{
+						max=dev;
+					}
+					else
+					{
+						break;
+					}
+				}
+			}
+			if(max>BIG_THRESHOLD)
+			{
+				particle.corners[0].y=i;
+			}
+		}
+	}
+	public Score diagRect(Particle particle)
+	{
+		/*
+		 * Corner order for reference
+		 * 		0	1
+		 * 
+		 * 		2	3
+		 */
+		double width;
+		double height;
+		
+		//Two options, measure diagonally or just all at once sum of x y. Second option here.
+		int[] smallestSums = {9999, 9999, 9999, 9999};
+		Point[] local_fixed= {new Point(0,0), new Point(particle.getWidth()-1, 0), new Point(0, particle.getHeight()-1), new Point(particle.getWidth()-1, particle.getHeight()-1)};
+		for(int x=0;x<particle.getWidth();x++)
+		{
+			for(int y=0;y<particle.getHeight();y++)
+			{
+				if(particle.getLocalValue(x, y))
+				{
+					for(int i=0;i<smallestSums.length;i++)
+					{
+						int sum=Math.abs(local_fixed[i].x-x) + Math.abs(local_fixed[i].y-y);
+						if(sum < smallestSums[i])
+						{
+							smallestSums[i]=sum;
+							particle.corners[i]=new Point(x,y);
+						}
+					}
+				}
+			}
+		}
+		//Translate corners from local values to global values
+		for(int i=0;i<particle.corners.length;i++)
+		{
+			particle.corners[i].translate((int) (particle.getX()), (int) (particle.getY()));
+		}
+		
+		width=(distance(particle.corners[0],particle.corners[1])+distance(particle.corners[2],particle.corners[3]))/2.0;
+		height=(distance(particle.corners[0],particle.corners[2])+distance(particle.corners[1],particle.corners[3]))/2.0;
+		particle.tLocation=new Point((particle.corners[0].x+particle.corners[1].x)/2,(particle.corners[0].y+particle.corners[1].y)/2);
+		particle.setTWidth((int) width);
+		particle.setTHeight((int) height);
+		//particle.setAngle(Math.atan((particle.corners[2].y-particle.corners[3].y)/(1.0*particle.corners[2].x-particle.corners[3].x)));
+		particle.setAngle(Math.atan((particle.corners[2].y-particle.corners[3].y)/(1.0*(particle.corners[3].x-particle.corners[2].x))));
+		//particle.setAngle(Math.atan2(particle.corners[3].x-particle.corners[2].x,particle.corners[2].y-particle.corners[3].y));
+		double ratio = (width * 1.0) / (height * 1.0) * 1.0;
+		return new Score(ratio, ScoreType.EQUIV_RECT);
 	}
 	public Score equivRect(Particle particle, ArrayList<Point> interest)
 	{
@@ -303,6 +530,63 @@ public class Vision
 				default_corner[i]=fixed[i];
 			}
 		}
+		//Experimental code
+		ArrayList<Point> candidates=new ArrayList<Point>();
+		for(Point point: interest)
+		{
+			if(new Rectangle(particle.x-searchSide,particle.y-searchSide,particle.getWidth()+(2*searchSide),particle.getHeight()+(2*searchSide)).contains(point))
+			{
+				candidates.add(point);
+			}
+		}
+		//Golf scores, less is better
+		int[] score=new int[candidates.size()];
+		byte[] quadrant=new byte[candidates.size()];
+		for(int i=0;i<candidates.size();i++)
+		{
+			Point point=new Point(candidates.get(i).x,candidates.get(i).y);
+			point.translate(-1*particle.x, -1*particle.y);
+			//Quadrant #
+			byte quad=0;
+			if(point.x>particle.getWidth()/2)
+			{
+				quad=1;
+			}
+			if(point.y>particle.getHeight()/2)
+			{
+				quad=(byte) (quad+2);
+			}
+			quadrant[i]=quad;
+			//Distance from corner initial score 
+			double distance=distance(candidates.get(i), fixed[quadrant[i]]);
+			score[i]=(int)(distance*10);
+			double neighbors=0;
+			for(Point n: candidates)
+			{
+				if(!n.equals(candidates.get(i)))
+				{
+					double nd=distance(n, candidates.get(i));
+					nd=Vision.gauss(nd, 15, 0);
+					neighbors=neighbors+nd;
+				}
+			}
+			score[i]=(int) (score[i]+(neighbors*20));
+		}
+		double[] score_top=new double[4];
+		for(int i=0;i<score_top.length;i++)
+		{
+			score_top[i]=Double.MAX_VALUE;
+		}
+		for(int i=0;i<candidates.size();i++)
+		{
+			if(score[i]<score_top[quadrant[i]])
+			{
+				score_top[quadrant[i]]=score[i];
+				particle.corners[quadrant[i]]=candidates.get(i);
+			}
+		}
+		//Other code
+		/*
 		ArrayList<Point> candidates=new ArrayList<Point>();
 		for(Point point: interest)
 		{
@@ -443,18 +727,6 @@ public class Vision
 					}
 				}
 			}
-			/*
-			for(int i=0;i<fixed.length;i++)
-			{
-				double distance=distance(fixed[i],point);
-				if(distance<record[i])
-				{
-					record[i]=distance;
-					particle.corners[i]=point;
-					cornersfound[i]=true;
-				}
-			}
-			*/
 		}
 		if(runner0!=null)
 		{
@@ -519,6 +791,7 @@ public class Vision
 		{
 			particle.corners[3]=best3;
 		}
+		*/
 		//Finishing code, always keep
 		double width;
 		double height;
@@ -708,7 +981,8 @@ public class Vision
 		double targetFeet=1.66;
 		double FOVpixel=mapWidth*1.0;
 		double tanTheta=Math.tan(1.185857);
-		distanceNumerator=(targetFeet*FOVpixel)/(2*tanTheta);
+		//distanceNumerator=(targetFeet*FOVpixel)/(2*tanTheta);
+		distanceNumerator=1151;
 		System.out.printf("Distance Numerator: [%f]\n",distanceNumerator);
 	}
 	public double findDistance(Particle particle)
@@ -1631,5 +1905,9 @@ public class Vision
 	        copy[i] = Arrays.copyOf(original[i], original[i].length);
 	    }
 	    return copy;
+	}
+	public static double gauss(double x, double sd, double u)
+	{
+		return (1/Math.sqrt(2*sd*sd*Math.PI))*Math.pow(Math.E, -1*(x-u)*(x-u)/(2*sd*sd));
 	}
 }

@@ -479,10 +479,14 @@ public class FeatureDetector implements Runnable
 	public void run()
 	{
 		done=false;
+		long t1=System.currentTimeMillis();
 		processDeriv(map);
+		System.out.printf("Processed Derivs. Time: [%f]s\n", (System.currentTimeMillis()-t1)/1000.0);
 		if(findCorners)
 		{
+			t1=System.currentTimeMillis();
 			corners=processCorners();
+			System.out.printf("Found Corners. Time: [%f]s\n", (System.currentTimeMillis()-t1)/1000.0);
 		}
 		done =true;
 	}
