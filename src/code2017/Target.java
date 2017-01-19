@@ -36,4 +36,13 @@ public class Target
 		Target nullTarget = new Target();
 		return nullTarget;
 	}
+	public Point getPixelPoint(int width, int height)
+	{
+		if(x==2.0)
+		{
+			return new Point(0,0);
+		}
+		Point point = new Point((int)(((x+1.0)*width)/2.0), (int)((1.0-y)*height/2.0));
+		return point;
+	}
 }

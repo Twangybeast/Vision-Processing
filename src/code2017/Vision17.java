@@ -2,8 +2,10 @@ package code2017;
 
 import java.awt.Point;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferByte;
 import java.io.PrintStream;
 import java.util.ArrayList;
+
 import visionCore.Vision;
 
 public class Vision17 
@@ -13,11 +15,16 @@ public class Vision17
 		{
 				ScoreType.EQUIV_RECT,
 				ScoreType.COVERAGE,
-				ScoreType.PROFILE
+				ScoreType.PROFILE,
+				ScoreType.GREENESS,
+				ScoreType.CENTERNESS
 		};
 	public static double VIEW_ANGLE= Math.toRadians(67.9446);
 	public PrintStream log = System.out;
 	
+	public boolean[][] map=null;
+	public int[][][] rgb=null;
+	public Property property=Property.getIdealGear();
 	//Called when vision is initialized, preferably before autonomous begins
 	public void init()
 	{
@@ -27,7 +34,7 @@ public class Vision17
 	public Target exec()
 	{
 		Target target= new Target();
-		boolean[][] map=Vision.createMap(image);
+		map=createMap(image);
 		ArrayList<Particle> particles;
 		particles = Vision17.findParticles(map);
 		
@@ -99,6 +106,7 @@ public class Vision17
 		double ratio=particle.count/(particle.getTWidth()*particle.getTHeight()*1.0);
 		return new Score(ratio, ScoreType.COVERAGE);
 	}
+	@SuppressWarnings("unused")
 	public Score moment(Particle particle)
 	{
 		Point centroid=new Point(0,0);
@@ -217,6 +225,27 @@ public class Vision17
 		}
 		return new Score(xprofile, yprofile);
 	}
+	public Score green(Particle particle)
+	{
+		long greeness=0;
+		for(int x = (int) particle.getX(); x<particle.getWidth()+particle.getX();x++)
+		{
+			for(int y = (int) particle.getY(); y<particle.getHeight()+particle.getY();y++)
+			{
+				if(particle.getGlobalValue(x, y))
+				{
+					int[] rgb=this.rgb[y][x];
+					greeness=greeness+rgb[1]-(rgb[0]);
+				}
+			}
+		}
+		double ratio=((greeness*1.0)/particle.count)*255.0;
+		return new Score(ratio, ScoreType.GREENESS);
+	}
+	public Score center(Particle particle)
+	{
+		return new Score(0.0, ScoreType.CENTERNESS);
+	}
 	
 	private void findProperties(ArrayList<Particle> particles)
 	{
@@ -241,6 +270,12 @@ public class Vision17
 					case PROFILE:
 						s=profile(particles.get(i));
 						break;
+					case GREENESS:
+						s=green(particles.get(i));
+						break;
+					case CENTERNESS:
+						s=center(particles.get(i));
+						break;
 				}
 				particles.get(i).scores[j]=s;
 			}
@@ -255,7 +290,7 @@ public class Vision17
 			for(int j=0; j<SCORE_PATTERN.length;j++)
 			{
 				int s=0;
-				s=particles.get(i).scores[j].getScore(Property.getIdealBoilerTop());
+				s=particles.get(i).scores[j].getScore(property);
 				totalScore= totalScore + s;
 			}
 			particles.get(i).score=totalScore;
@@ -477,5 +512,104 @@ public class Vision17
 	public void setImage(BufferedImage image)
 	{
 		this.image=image;
+	}
+	public boolean[][] createMap(BufferedImage picture)// Because x & y are irrelevant here, do not bother changing i & j places in map array
+	{
+		rgb = getArray(picture);
+		boolean[][] map = new boolean[rgb.length][rgb[0].length];
+		//map = useHsl(map, image, hmin, hmax, smin, lmin, lmax);
+		map=useHsv(map, rgb);
+		//map=advancedHSV(map, image);
+		// LightHSL is experimental idea, more lenient towards pixels surrounded by alive cells
+		// map=lightHsl(map,image, hmin, hmax, smin, lmin, lmax);
+		return map;
+	}
+	public static int[][][] getArray(BufferedImage image)
+	{
+
+		final byte[] pixels = ((DataBufferByte) image.getRaster()
+				.getDataBuffer()).getData();
+		final int width = image.getWidth();
+		final int height = image.getHeight();
+		final boolean hasAlphaChannel = image.getAlphaRaster() != null;
+
+		int[][][] result = new int[height][width][4];
+		if (hasAlphaChannel)
+		{
+			final int pixelLength = 4;
+			for (int pixel = 0, row = 0, col = 0; pixel < pixels.length; pixel += pixelLength)
+			{
+				/*
+				 * int argb = 0; argb += (((int) pixels[pixel] & 0xff) << 24);
+				 * // alpha argb += ((int) pixels[pixel + 1] & 0xff); // blue
+				 * argb += (((int) pixels[pixel + 2] & 0xff) << 8); // green
+				 * argb += (((int) pixels[pixel + 3] & 0xff) << 16); // red
+				 */// Code from where I copy pas- *ahem* made myself
+					// argb = (int) pixels[pixel + color];
+
+				// Order goes in red, green, blue, alpha
+				result[row][col][0] = (int) pixels[pixel + 3] & 0xff;// red
+				result[row][col][1] = (int) pixels[pixel + 2] & 0xff;// green
+				result[row][col][2] = (int) pixels[pixel + 1] & 0xff;// blue
+				result[row][col][3] = (int) (pixels[pixel]) & 0xff;// alpha
+				col++;
+				if (col == width)
+				{
+					col = 0;
+					row++;
+				}
+			}
+		} else
+		{
+			final int pixelLength = 3;
+			for (int pixel = 0, row = 0, col = 0; pixel < pixels.length; pixel += pixelLength)
+			{
+				// int argb = 0;
+				/*
+				 * argb += -16777216; // 255 alpha argb += ((int) pixels[pixel]
+				 * & 0xff); // blue argb += (((int) pixels[pixel + 1] & 0xff) <<
+				 * 8); // green argb += (((int) pixels[pixel + 2] & 0xff) <<
+				 * 16); // red
+				 */
+				// argb=(int) pixels[pixel+(color-1)];//code for specific color,
+				// replace with rgb
+
+				// Order goes in red, green, blue, alpha
+				result[row][col][0] = (int) pixels[pixel + 2] & 0xff;// red
+				result[row][col][1] = (int) pixels[pixel + 1] & 0xff;// green
+				result[row][col][2] = (int) pixels[pixel] & 0xff;// blue
+				result[row][col][3] = 255;// alpha
+				col++;
+				if (col == width)
+				{
+					col = 0;
+					row++;
+				}
+			}
+		}
+
+		return result;
+	}
+	public static boolean[][] useHsv(boolean[][] map, int[][][] image)
+	{
+		//Modified code from useHsl
+		for (int i = 0; i < image.length; i++)
+		{
+			for (int j = 0; j < image[0].length; j++)
+			{
+				boolean valid = true;
+				int red = image[i][j][0];
+				int green = image[i][j][1];
+				int blue = image[i][j][2];
+				
+				int foo=green+blue-((red*2)+Math.abs(green-blue));
+				if(foo<100)
+				{
+					valid=false;
+				}
+				map[i][j] = valid;
+			}
+		}
+		return map;
 	}
 }

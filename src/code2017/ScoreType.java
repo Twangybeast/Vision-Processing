@@ -5,5 +5,7 @@ public enum ScoreType
 	EQUIV_RECT,
 	COVERAGE,
 	MOMENT,
-	PROFILE
+	PROFILE,
+	GREENESS,
+	CENTERNESS
 }

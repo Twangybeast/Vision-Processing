@@ -51,6 +51,12 @@ public class Score
 				//score=profileScore();
 				score=profileScore2();
 				break;
+			case GREENESS:
+				score=limit((int) (100*(1.0-ratio)));
+				break;
+			case CENTERNESS:
+				score=limit((int) (ratio*100));
+				break;
 		}
 		evaluated=true;
 	}
