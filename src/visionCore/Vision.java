@@ -1269,7 +1269,7 @@ public class Vision
 		}
 		return scan;
 	}
-	private double distance(Point p, Point p2)
+	public static double distance(Point p, Point p2)
 	{
 		return Math.sqrt(Math.pow(p.x - p2.x, 2) + Math.pow(p.y - p2.y, 2));
 	}
@@ -1565,7 +1565,7 @@ public class Vision
 		return toReturn;
 	}
 
-	private int[][][] getArray(BufferedImage image)
+	public static int[][][] getArray(BufferedImage image)
 	{
 
 		final byte[] pixels = ((DataBufferByte) image.getRaster()
@@ -1647,7 +1647,7 @@ public class Vision
 		}
 	}
 
-	public boolean[][] createMap(BufferedImage picture)// Because x & y are irrelevant here, do not bother changing i & j places in map array
+	public static boolean[][] createMap(BufferedImage picture)// Because x & y are irrelevant here, do not bother changing i & j places in map array
 	{
 		int[][][] image = getArray(picture);
 		boolean[][] map = new boolean[image.length][image[0].length];
@@ -1724,7 +1724,7 @@ public class Vision
 		}
 		return map;
 	}
-	private boolean[][] useHsv(boolean[][] map, int[][][] image)
+	public static boolean[][] useHsv(boolean[][] map, int[][][] image)
 	{
 		//Modified code from useHsl
 		for (int i = 0; i < image.length; i++)
@@ -1759,7 +1759,7 @@ public class Vision
 		}
 		return map;
 	}
-	private boolean[][] useHsl(boolean[][] map, int[][][] image, int hmin, int hmax, int smin, int lmin, int lmax)
+	public static boolean[][] useHsl(boolean[][] map, int[][][] image, int hmin, int hmax, int smin, int lmin, int lmax)
 	{
 		for (int i = 0; i < image.length; i++)// Converts array into map of reflected light, based on color threshold
 		{
@@ -1796,7 +1796,7 @@ public class Vision
 		return map;
 	}
 	//private boolean[][] lightHsl(boolean[][] map, int[][][] image, int hmin,int hmax,int smin,int lmin,int lmax){for(int i=0;i<image.length;i++){for(int j=0;j<image[0].length;j++){boolean adjacent=false;if(j>0){if(map[i][j-1]){adjacent=true;}}if(i>0){if(map[i-1][j]){adjacent=true;}}if(j+1<image[0].length){if(map[i][j+1]){adjacent=true;}}if(i+1<image.length){if(map[i+1][j]){adjacent=true;}}if(adjacent){boolean valid=false;int red=image[i][j][0];int green=image[i][j][1];int blue = image[i][j][2];int[] hsl=getHSL(red, green, blue);if(hsl[0]>=hmin&&hsl[0]<=hmax){if(hsl[1]>=smin){if(hsl[2]>=lmin&&hsl[2]<=lmax){valid=true;}}}map[i][j]=valid;}}}return map;}
-	public int[] getHSL(int red, int green, int blue)
+	public static int[] getHSL(int red, int green, int blue)
 	{
 		int[] hsl=new int[3];//Self explanatory, array with elements in order of hue, saturation, and luminance
 		//ranges noted below of hsl, inclusively
@@ -1845,7 +1845,7 @@ public class Vision
 		}
 		return hsl;
 	}
-	public int[] getHSV(int red, int green, int blue)
+	public static int[] getHSV(int red, int green, int blue)
 	{
 		//Calculations based of this website http://www.rapidtables.com/convert/color/rgb-to-hsv.htm
 		int[] hsv=new int[3];

@@ -1,4 +1,4 @@
-package visionCore;
+package code2017;
 import java.awt.Point;
 
 
@@ -17,6 +17,7 @@ public class Particle
 	public Point tLocation=null;
 	public int score=9999;
 	public Score[] scores=null;
+	public double distance = 0;
 	public Particle(Particle particle)
 	{
 		this.x=particle.x;
