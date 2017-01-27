@@ -7,7 +7,7 @@ public class Target
 	/*
 	 * Format 17.0:
 	 * 	-Coordinate system where (0,0) is the center of screen.
-	 * 	-Angle is radians clockwise
+	 * 	-Angle is degrees counterclockwise
 	 * 	-Target distance in inches
 	 */
 	public double x;

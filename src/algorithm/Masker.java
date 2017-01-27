@@ -61,6 +61,8 @@ public class Masker implements Runnable
 				result=null;
 				corners=FeatureDetector.corner(derivs[0], derivs[1], derivs[2], range);
 				break;
+			case MAGNITUDE:
+				
 		}
 		
 	}

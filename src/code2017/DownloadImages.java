@@ -50,6 +50,7 @@ public class DownloadImages
         for(File file: imageFolders)
         {
         	File[] images=file.listFiles();
+			new File(path+file.getName()).mkdirs();
         	for(File image: images)
         	{
         		if(image.getName().contains(".jpg"))
@@ -60,6 +61,7 @@ public class DownloadImages
         }
         deleteDirectory(new File(path+"__MACOSX"));
         deleteDirectory(source);
+        deleteDirectory(new File(path+"Vision Example"));
         File delete;
         final String[] toDelete={"download.zip",".DS_Store"};
         for(int i=0;i<toDelete.length;i++)

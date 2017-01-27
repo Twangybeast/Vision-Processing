@@ -37,7 +37,7 @@ public class PictureController implements Runnable
 	{
 		findPath();
 		imageFiles=findPictureFiles(new File(path), "jpg");
-		frame=new PictureTester(getImage(imageFiles[imageNumber]));
+		frame=new PictureTester(getImage(new File(path+"1ftH1ftD0Angle0Brightness.jpg")));
 		Thread t=new Thread(this);
 		t.start();
 		try

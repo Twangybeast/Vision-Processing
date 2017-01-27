@@ -10,6 +10,12 @@ import visionCore.Particle;
 public class FeatureDetector implements Runnable
 {
 	final static int[][] SOBEL_3={ { 3, 2, 1, 0, -1, - 2, - 3 }, { 4, 3, 2, 0, -2, - 3, - 4, }, { 5, 4, 3, 0, -3, - 4, - 5 }, { 6, 5, 4, 0, -4, - 5, - 6 }, { 5, 4, 3, 0, -3, - 4, - 5 }, { 4, 3, 2, 0, -2, - 3, - 4 }, { 3, 2, 1, 0, -1, - 2, - 3 } };
+	final static int[][] SOBEL_2=
+		{
+			{-1, 0, 1},
+			{-2, 0, 2},
+			{-1, 0, 1},
+		};
 	final static int[][] GAUSS_FILTER=
 		{
 			{2,	4,	5,	4,	2},
@@ -57,11 +63,11 @@ public class FeatureDetector implements Runnable
 			maskers[i].setRange(new Rectangle(0, rectangleHeight*i, input[0].length,rectangleHeight));
 		}
 		//Begins first operation, Gaussian filter, reduces noise of picture
-		double[][] filter=runMaskers(input, GAUSS_FILTER, GAUSS_DIV);
+		double[][] filtered=runMaskers(input, GAUSS_FILTER, GAUSS_DIV);
 		//X-Derivative Operation, same thing, but different divisor and mask
-		ix=runMaskers(filter, xDeriv);
+		ix=runMaskers(filtered, xDeriv);
 		//Y-Derivative Operation, you should get the pattern
-		iy=runMaskers(filter, yDeriv);
+		iy=runMaskers(filtered, yDeriv);
 		//Usage of the derivatives depends on the operation, which will be in another method
 	}
 	private double[][] runMaskers(double[][] input, int[][] mask)
@@ -229,13 +235,13 @@ public class FeatureDetector implements Runnable
 	}
 	private void generateKernels()
 	{
-		yDeriv=SOBEL_3;
-		xDeriv=new int[SOBEL_3.length][SOBEL_3[0].length];
-		for(int i=0;i<SOBEL_3.length;i++)
+		xDeriv=SOBEL_2;
+		yDeriv=new int[SOBEL_2.length][SOBEL_2[0].length];
+		for(int i=0;i<SOBEL_2.length;i++)
 		{
-			for(int j=0;j<SOBEL_3[0].length;j++)
+			for(int j=0;j<SOBEL_2[0].length;j++)
 			{
-				xDeriv[j][i]=SOBEL_3[i][j];
+				yDeriv[j][i]=SOBEL_2[i][j];
 			}
 		}
 	}

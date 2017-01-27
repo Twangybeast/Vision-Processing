@@ -6,6 +6,7 @@ import java.awt.image.DataBufferByte;
 import java.io.PrintStream;
 import java.util.ArrayList;
 
+import visionCore.RGB;
 import visionCore.Vision;
 
 public class Vision17 
@@ -49,7 +50,8 @@ public class Vision17
 		filterFarParticles(particles, 240.0);
 		Particle particle = findBestParticle(particles);
 		target= findTargetFromParticle(particle);
-		
+		target=setGearTargetPosition(target, particle, map);
+		System.out.printf("Target: (%f, %f)\n", target.x, target.y);
 		return target;
 	}
 	public Score diagRect(Particle particle)
@@ -302,7 +304,7 @@ public class Vision17
 		ArrayList<Particle> disqualified= new ArrayList<Particle>();
 		for(int i=0;i<particles.size();i++)
 		{
-			findParticleDistance(particles.get(i), 15.0, image.getWidth());
+			findParticleDistance(particles.get(i), 5.0, image.getHeight());
 			if(particles.get(i).distance>maxDistance)
 			{
 				disqualified.add(particles.get(i));
@@ -339,11 +341,82 @@ public class Vision17
 		target = new Target(x, y, particle.getAngle(), particle.distance);
 		return target;
 	}
-	
-	
+	private Target setGearTargetPosition(Target target, Particle particle, boolean[][] map)
+	{
+		boolean onLeft=onLeft(map, particle);
+		Point center=new Point(particle.x+(particle.getWidth()/2), particle.y+(particle.getHeight()/2));
+		int centerSeparation=(int) (4.125*particle.getTHeight()/5.0);
+		if(!onLeft)
+		{
+			centerSeparation=-centerSeparation;
+
+		}
+		int dx=(int)(Math.cos(particle.getAngle())*centerSeparation);
+		int dy=(int)(Math.sin(particle.getAngle())*centerSeparation);
+		center.translate(dx, dy);
+		particle.tLocation=new Point(center.x, center.y);
+		target=findTargetFromParticle(particle);
+		return target;
+	}
+	private boolean onLeft(boolean[][] map, Particle particle)
+	{
+		int range=(int) (particle.getTHeight()*2.5);
+		int leftScore=0;
+		int heightUnit = particle.getHeight()/4;
+		for(int i=0;i<3;i++)
+		{
+			Point p=new Point(particle.x, particle.y+(heightUnit*(i+1)));
+			leftScore=leftScore+cellsInLineRange(map, p, -range);
+		}
+		int rightScore=0;
+		for(int i=0;i<3;i++)
+		{
+			Point p=new Point(particle.x+particle.getWidth()-1, particle.y+(heightUnit*(i+1)));
+			rightScore=rightScore+cellsInLineRange(map, p, range);
+		}
+		return rightScore>leftScore;
+	}
+	public static int cellsInLineRange(boolean[][] map, Point p, int range)
+	{
+		int total=0;
+		int r;
+		if(range<0)
+		{
+			r=-range;
+			for(int i=0;i<r;i++)
+			{
+				int x = p.x-i;
+				int y = p.y;
+				if(x>=0&&y>=0&&x<map[0].length&&y<map.length)
+				{
+					if(map[y][x])
+					{
+						total++;
+					}
+				}
+			}
+		}
+		else
+		{
+			r=range;
+			for(int i=0;i<r;i++)
+			{
+				int x = p.x+i;
+				int y = p.y;
+				if(x>=0&&y>=0&&x<map[0].length&&y<map.length)
+				{
+					if(map[y][x])
+					{
+						total++;
+					}
+				}
+			}
+		}
+		return total;
+	}
 	public static ArrayList<Particle> findParticles(boolean[][] map)// Generates rectangles for every point
 	{
-		final int minimumAlive = 100;
+		final int minimumAlive = 700;
 		
 		boolean[][] mapCopy = Array2DCopier.copyOf(map);
 		long total=0;
@@ -495,13 +568,12 @@ public class Vision17
 				}
 			}
 		}
-		System.out.println("Total \t"+total);
 		return toReturn;
 	}
 	
-	public static double findParticleDistance(Particle particle, double idealWidth, int imageWidth)
+	public static double findParticleDistance(Particle particle, double idealHeight, int imageHeight)
 	{
-		double distance = idealWidth * imageWidth / (2 * particle.getTWidth()* Math.tan(VIEW_ANGLE));
+		double distance = idealHeight* imageHeight / (2 * particle.getTHeight()* Math.tan(VIEW_ANGLE*(3.0/4.0)));
 		particle.distance=distance;
 		return distance;
 	}
@@ -601,15 +673,81 @@ public class Vision17
 				int red = image[i][j][0];
 				int green = image[i][j][1];
 				int blue = image[i][j][2];
-				
-				int foo=green+blue-((red*2)+Math.abs(green-blue));
-				if(foo<100)
+				int[] hsv = getHSV(red, green, blue);
+				int allowance=(int) ((-7.0/10.0)*hsv[1]+100);
+				//allowance=Math.max(allowance, (hsv[2]-50)*10);
+				allowance=Math.max(allowance, 15);
+				//While loop stupid way to exit checker when done
+				while(true)
 				{
-					valid=false;
+					if(Math.abs(hsv[0]-165)>allowance)
+					{
+						valid=false;
+						break;
+					}
+					if(hsv[2]<30)
+					{
+						valid=false;
+						break;
+					}
+					break;
 				}
 				map[i][j] = valid;
 			}
 		}
 		return map;
+	}
+	public static int[] getHSV(int red, int green, int blue)
+	{
+		//Calculations based of this website http://www.rapidtables.com/convert/color/rgb-to-hsv.htm
+		int[] hsv=new int[3];
+		RGB maxType=RGB.RED;
+		double r=(red*1.0)/255.0;
+		double g=(green*1.0)/255.0;
+		double b=(blue*1.0)/255.0;
+		double max=r;
+		if(g>max)
+		{
+			max=g;
+			maxType=RGB.GREEN;
+		}
+		if(b>max)
+		{
+			max=b;
+			maxType=RGB.BLUE;
+		}
+		double min=Math.min(Math.min(r,g), b);
+		double delta=max-min;
+		if(delta==0)
+		{
+			hsv[0]=0;
+		}
+		else
+		{
+			switch(maxType)
+			{
+				case RED:
+					hsv[0]=(int) (60.0*(((g-b)/delta)%6));
+					break;
+				case GREEN:
+					hsv[0]=(int) (60.0*(((b-r)/delta)+2));
+					break;
+				case BLUE:
+					hsv[0]=(int) (60.0*(((r-g)/delta)+4));
+					break;
+				default:
+					assert false;//OOH! Fancy Keywords! But realisticly, if it gets here, the program is messed up. A lot.
+			}
+		}
+		if(max==0)
+		{
+			hsv[1]=0;
+		}
+		else
+		{
+			hsv[1]=(int) Math.round(100.0*delta/max);
+		}
+		hsv[2]=(int) Math.round(100.0*max);
+		return hsv;
 	}
 }

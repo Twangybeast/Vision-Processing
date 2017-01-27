@@ -6,5 +6,6 @@ public enum Operation
 	DERIV,
 	PROCESS,
 	CONV,
-	CORNER
+	CORNER,
+	MAGNITUDE
 }
