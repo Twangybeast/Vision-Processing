@@ -1,23 +1,48 @@
-package def2017;
+package edgedetector;
+
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.Point;
 import java.awt.event.KeyEvent;
-import java.awt.image.*;
+import java.awt.image.BufferedImage;
+import java.util.ArrayList;
 
-import javax.swing.*;
+import javax.swing.JFrame;
 
+import keyboard.KeyboardInput;
 import code2017.Particle;
 import code2017.Target;
 import code2017.Vision17;
-import keyboard.KeyboardInput;
 
-public class PictureTester extends JFrame implements Runnable
+public class EdgeDisplayer extends JFrame implements Runnable
 {
-	private static final long serialVersionUID = -6265417222272758163L;
-	//Size of Target Marker
-	final int radius=4;
+	private static final long serialVersionUID = 8125498152122081866L;
+	public final static Color[] COLOR_PALETTE=
+		{
+			new Color(0xED0A3F),
+			new Color(0xFF3F34),
+			new Color(0xFF861F),
+			new Color(0xFBE870),
+			new Color(0xC5E17A),
+			new Color(0x01A368),
+			new Color(0x76D7EA),
+			new Color(0x0066FF),
+			new Color(0x8359A3),
+			new Color(0xAF593E),
+			new Color(0x03BB85),
+			new Color(0xFFDF00),
+			new Color(0x8B8680),
+			new Color(0x0A6B0D),
+			new Color(0x8FD8D8),
+			new Color(0xF653A6),
+			new Color(0xCA3435),
+			new Color(0xFFCBA4),
+			new Color(0xCD9A9E),
+			new Color(0xFA9D5A),
+			new Color(0xA36F40),
+			new Color(0xFFAE42)
+		};
 	//Controls
 	final int right=KeyEvent.VK_RIGHT;
 	final int left=KeyEvent.VK_LEFT;
@@ -30,13 +55,13 @@ public class PictureTester extends JFrame implements Runnable
 	private Thread t;
 	private int imageQ=0;
 	private boolean processImage=true;
-	private Vision17 v;
-	private boolean[][] map;
-	private Point target=new Point(-1,-1);
-	private Particle particle=null;
 	private final double wMult=2;
 	private final double hMult=2;
-	public PictureTester(BufferedImage image)
+	private ArrayList<Particle> edges=null;
+	private double[][] map=null;
+	private EdgeDetector ed=null;
+	private double[][] mag=null;
+	public EdgeDisplayer(BufferedImage image)
 	{
 		super();
 		t=new Thread(this);
@@ -59,12 +84,12 @@ public class PictureTester extends JFrame implements Runnable
 			{
 				processImage=false;
 				
-				v=new Vision17();
-				v.setImage(image);
-				Target target=v.exec();
-				map=v.map;
-				this.target=target.getPixelPoint(image.getWidth(), image.getHeight());
-				System.out.printf("Angle: [%f]\n",Math.toDegrees(target.angle));
+				ed=new EdgeDetector(4);
+				map=Conv.generateDoubleMap(image);
+				ed.init(map);
+				ed.exec();
+				edges=ed.getEdges();
+				mag=ed.getMag();
 				System.out.println("Processed");
 			}
 			keyboard.updateKeys();
@@ -96,68 +121,59 @@ public class PictureTester extends JFrame implements Runnable
 	{
 		BufferedImage picture=new BufferedImage((int)(image.getWidth()*wMult),(int)(image.getHeight()*hMult), BufferedImage.TYPE_INT_RGB);
 		Graphics g=picture.getGraphics();
-		g.setColor(Color.WHITE);
+		g.setColor(new Color(0xAAAAAA));
 		g.fillRect(0, image.getHeight()+1, image.getWidth()*2, image.getHeight());
-		g.setColor(Color.YELLOW);
 		if(map!=null)
 		{
-			for(int i=0;i<image.getHeight();i++)
+			for(int i=0;i<map.length;i++)
 			{
-				for(int j=0;j<image.getWidth();j++)
+				for(int j=0;j<map[0].length;j++)
 				{
-					if(map[i][j])
+					int strength=(int)(map[i][j]*255.0);
+					g.setColor(new Color(strength, strength, strength));
+					g.fillRect(j, i, 1, 1);
+				}
+			}
+		}
+		if(edges!=null)
+		{
+			for(Particle edge: edges)
+			{
+				g.setColor(COLOR_PALETTE[edge.count%COLOR_PALETTE.length]);
+				for(int x=0;x<edge.getWidth();x++)
+				{
+					for(int y=0;y<edge.getHeight();y++)
 					{
-						g.fillRect(j, i, 1, 1);
+						if(edge.getLocalValue(x, y))
+						{
+							int x1=(int) (x+edge.getX());
+							int y1=(int) (y+edge.getY());
+							
+							g.fillRect(x1, y1+image.getHeight(), 1, 1);
+						}
 					}
 				}
 			}
 		}
-		if(particle!=null)
+		if(mag!=null)
 		{
-			g.setColor(Color.RED);
-			for(Point corner: particle.corners)
+			final double MAG_STRENGTH=	0.03;
+			final double CONST_SECOND= 50.0;
+			for(int i=0;i<mag.length;i++)
 			{
-				//g.fillRect(corner.x+particle.x, corner.y+particle.y, 2, 2);
-				g.drawLine(target.x, target.y,corner.x, corner.y);
-			}
-			//Draws line of angle in above/below quadrant
-			g.setColor(Color.GREEN);
-			Point center=new Point(image.getWidth()/4,image.getHeight()/4);
-			Point p1=new Point(0,center.y+(int)(center.x*Math.tan(particle.getAngle())));
-			Point p2=new Point(image.getWidth()/2,center.y-(int)(center.x*Math.tan(particle.getAngle())));
-			if(particle.x>image.getWidth()/2)
-			{
-				//Right side of image
-				if(particle.y>image.getHeight()/2)
+				for(int j=0;j<mag[0].length;j++)
 				{
-					//Bottom
-					g.drawLine(p1.x+image.getWidth()/2, p1.y, p2.x+image.getWidth()/2, p2.y);
-				}
-				else
-				{
-					//Top
-					g.drawLine(p1.x+image.getWidth()/2, p1.y+image.getHeight()/2, p2.x+image.getWidth()/2, p2.y+image.getHeight()/2);
-				}
-			}
-			else
-			{
-				//Left side
-				if(particle.y>image.getHeight()/2)
-				{
-					//Bottom
-					g.drawLine(p1.x, p1.y, p2.x, p2.y);
-				}
-				else
-				{
-					//Top
-					g.drawLine(p1.x, p1.y+image.getHeight()/2, p2.x, p2.y+image.getHeight()/2);
+					int strength=(int)(Math.log(mag[i][j]*MAG_STRENGTH)*CONST_SECOND);
+					strength=Math.min(strength, 255);
+					strength=Math.max(strength, 0);
+					g.setColor(new Color(strength, strength, strength));
+					g.fillRect(j+image.getWidth(), i+image.getHeight(), 1, 1);
 				}
 			}
 		}
-		g.setColor(Color.CYAN);
-		g.fillRect(target.x-(radius/2), target.y-(radius/2), radius, radius);
+		g.setColor(Color.YELLOW);
+		
 		g.drawImage(image, image.getWidth(), 0, null);
-		g.fillRect(target.x+image.getWidth()-(radius/2), target.y-(radius/2), radius, radius);
 		
 		frameG.drawImage(picture, inset.left, inset.top, null);
 	}

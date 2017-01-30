@@ -1,4 +1,4 @@
-# Vision-Processing DO NOT PUSH TO GIT HUB YET
+# Vision-Processing OUTDATED README.md. INSTRUCTIONS ARE FOR PREVIOUS ITERATION. 
 I did stuff.  
 This is the stuff.  
 I am good at doing stuff.

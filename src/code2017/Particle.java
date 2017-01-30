@@ -101,6 +101,10 @@ public class Particle
 		y=y-this.y;
 		return localInMap(x,y);
 	}
+	public void safeSetGlobal(int x, int y, boolean value)
+	{
+		safeSetLocal(x-this.x, y-this.y, value);
+	}
 	public boolean localInMap(int x, int y)
 	{
 		if(x<0||y<0)
@@ -136,9 +140,17 @@ public class Particle
 		}
 		else
 		{
-			count=count-1;
+			if(map[y][x])
+			{
+				count=count-1;
+			}
 		}
 		map[y][x]=value;
+	}
+	public void safeSetLocal(int x, int y, boolean value)
+	{
+		localExpand(x, y);
+		setLocalValue(x, y, value);
 	}
 	public boolean getValue(int x, int y)
 	{

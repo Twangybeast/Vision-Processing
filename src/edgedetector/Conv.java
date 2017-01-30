@@ -1,6 +1,13 @@
 package edgedetector;
 
 import java.awt.Rectangle;
+import java.awt.image.BufferedImage;
+import java.util.ArrayList;
+import java.util.Arrays;
+
+import code2017.Particle;
+import code2017.Vision17;
+import visionCore.Vision;
 
 public class Conv 
 {
@@ -16,7 +23,23 @@ public class Conv
 			{0, 0, 0},
 			{-1, -2, -1}
 		};
-	public static double conv(double[][] map, double[][] mask, int x1, int y1)
+	static int[][] GAUSS=
+		{
+			{2, 4, 5, 4, 2},
+			{4, 9, 12, 9, 4},
+			{5, 12, 15, 12, 5},
+			{4, 9, 12, 9, 4},
+			{2, 4, 5, 4, 2}
+		};
+	static int[][] GAUSS_2=
+		{
+			{1, 4, 7, 4, 1},
+			{4, 16, 26, 16, 4},
+			{7, 26, 41, 26, 7},
+			{4, 16, 26, 16, 4},
+			{1, 4, 7, 4, 1}
+		};
+	public static double conv(double[][] map, int[][] mask, int x1, int y1)
 	{
 		if(mask.length==0)
 		{
@@ -50,10 +73,10 @@ public class Conv
 		return result;
 	}
 	//Gives conv value for a larger region
-	public static double[][] conv(double[][] map, double[][] mask, Rectangle region)
+	public static double[][] conv(double[][] map, int[][] mask, Rectangle region)
 	{
 		Rectangle r=region.intersection(new Rectangle(0, 0, map[0].length, map.length));
-		if(region!=r)
+		if(!region.equals(r))
 		{
 			System.out.println("WARNING: Region did not fall completely inside the map.");
 		}
@@ -92,6 +115,28 @@ public class Conv
 	{
 		return divideRegions(map[0].length, map.length, sectors);
 	}
+	public static double[][] combineResults(double[][][] results)
+	{
+		double[][] combined;
+		int width=0;
+		for(int i=0;i<results.length;i++)
+		{
+			width=width+results[i][0].length;
+		}
+		combined=new double[results[0].length][];
+		for(int y=0;y<combined.length;y++)
+		{
+			double[] row= new double[width];
+			int position=0;
+			for(int i=0;i<results.length;i++)
+			{
+				System.arraycopy(results[i][y], 0, row, position, results[i][y].length);
+				position=position+results[i][y].length;
+			}
+			combined[y]=row;
+		}
+		return combined;
+	}
 	public static double magnitude(double[][] xderiv, double[][] yderiv, int x, int y)
 	{
 		double value=Math.sqrt(Math.pow(xderiv[y][x], 2)+Math.pow(yderiv[y][x], 2));
@@ -100,7 +145,7 @@ public class Conv
 	public static double[][] magnitude(double[][] xderiv, double[][] yderiv, Rectangle region)
 	{
 		Rectangle r=region.intersection(new Rectangle(0, 0, xderiv[0].length, yderiv.length));
-		if(region!=r)
+		if(!region.equals(r))
 		{
 			System.out.println("WARNING: Region did not fall completely inside the map.");
 		}
@@ -115,5 +160,33 @@ public class Conv
 			}
 		}
 		return result;
+	}
+	public static double[][] generateDoubleMap(BufferedImage image)
+	{
+		int[][][] rgb_map=Vision17.getArray(image);
+		double[][] map=new double[rgb_map.length][rgb_map[0].length];
+		for(int i=0;i<map.length;i++)
+		{
+			for(int j=0;j<map[0].length;j++)
+			{
+				map[i][j]=Conv.scoreRGB(rgb_map[i][j][0], rgb_map[i][j][1], rgb_map[i][j][2]);
+			}
+		}
+		
+		return map;
+	}
+	public static double scoreRGB(int red, int green, int blue)
+	{
+		double score=0.0;
+		
+		double r=red/255.0;
+		double g=green/255.0;
+		double b=blue/255.0;
+		
+		score=(g*g*4)-(r*0.9);
+		
+		score=Math.min(score, 1.0);
+		score=Math.max(score, 0.0);
+		return score;
 	}
 }

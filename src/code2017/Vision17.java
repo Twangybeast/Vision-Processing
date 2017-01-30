@@ -419,7 +419,6 @@ public class Vision17
 		final int minimumAlive = 700;
 		
 		boolean[][] mapCopy = Array2DCopier.copyOf(map);
-		long total=0;
 		ArrayList<Particle> toReturn = new ArrayList<Particle>();
 		int iStart = 0, jStart = 0, iMax = 0, jMax = 0;
 		iMax = mapCopy[0].length;
