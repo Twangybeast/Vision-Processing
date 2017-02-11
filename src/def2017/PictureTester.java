@@ -5,12 +5,14 @@ import java.awt.Insets;
 import java.awt.Point;
 import java.awt.event.KeyEvent;
 import java.awt.image.*;
+import java.util.ArrayList;
 
 import javax.swing.*;
 
 import code2017.Particle;
 import code2017.Target;
 import code2017.Vision17;
+import edgedetector.EdgeDisplayer;
 import keyboard.KeyboardInput;
 
 public class PictureTester extends JFrame implements Runnable
@@ -32,8 +34,11 @@ public class PictureTester extends JFrame implements Runnable
 	private boolean processImage=true;
 	private Vision17 v;
 	private boolean[][] map;
+	private ArrayList<Particle> edges=null;
+	private ArrayList<Particle> particles=null;
 	private Point target=new Point(-1,-1);
 	private Particle particle=null;
+	private Particle pair=null;
 	private final double wMult=2;
 	private final double hMult=2;
 	public PictureTester(BufferedImage image)
@@ -62,8 +67,12 @@ public class PictureTester extends JFrame implements Runnable
 				v=new Vision17();
 				v.setImage(image);
 				Target target=v.exec();
-				map=v.map;
+				//map=v.map;
+				this.edges=v.edges;
+				this.particles=v.particles;
 				this.target=target.getPixelPoint(image.getWidth(), image.getHeight());
+				this.particle=v.particle;
+				this.pair=v.pair;
 				System.out.printf("Angle: [%f]\n",Math.toDegrees(target.angle));
 				System.out.println("Processed");
 			}
@@ -114,6 +123,34 @@ public class PictureTester extends JFrame implements Runnable
 		}
 		if(particle!=null)
 		{
+			g.setColor(Color.WHITE);
+			for(int x=0;x<particle.getWidth();x++)
+			{
+				for(int y=0;y<particle.getHeight();y++)
+				{
+					if(particle.getLocalValue(x, y))
+					{
+						g.fillRect(x+particle.x, y+particle.y, 1, 1);
+					}
+				}
+			}
+		}
+		if(pair!=null)
+		{
+			g.setColor(Color.GREEN);
+			for(int x=0;x<pair.getWidth();x++)
+			{
+				for(int y=0;y<pair.getHeight();y++)
+				{
+					if(pair.getLocalValue(x, y))
+					{
+						g.fillRect(x+pair.x, y+pair.y, 1, 1);
+					}
+				}
+			}
+		}
+		if(particle!=null && false)
+		{
 			g.setColor(Color.RED);
 			for(Point corner: particle.corners)
 			{
@@ -151,6 +188,47 @@ public class PictureTester extends JFrame implements Runnable
 				{
 					//Top
 					g.drawLine(p1.x, p1.y+image.getHeight()/2, p2.x, p2.y+image.getHeight()/2);
+				}
+			}
+		}
+
+		if(edges!=null)
+		{
+			for(Particle edge: edges)
+			{
+				g.setColor(EdgeDisplayer.COLOR_PALETTE[edge.count%EdgeDisplayer.COLOR_PALETTE.length]);
+				for(int x=0;x<edge.getWidth();x++)
+				{
+					for(int y=0;y<edge.getHeight();y++)
+					{
+						if(edge.getLocalValue(x, y))
+						{
+							int x1=(int) (x+edge.getX());
+							int y1=(int) (y+edge.getY());
+							
+							g.fillRect(x1, y1+image.getHeight(), 1, 1);
+						}
+					}
+				}
+			}
+		}
+		if(particles!=null)
+		{
+			for(Particle particle: particles)
+			{
+				g.setColor(EdgeDisplayer.COLOR_PALETTE[particle.count%EdgeDisplayer.COLOR_PALETTE.length]);
+				for(int x=0;x<particle.getWidth();x++)
+				{
+					for(int y=0;y<particle.getHeight();y++)
+					{
+						if(particle.getLocalValue(x, y))
+						{
+							int x1=(int) (x+particle.getX());
+							int y1=(int) (y+particle.getY());
+							
+							g.fillRect(x1+image.getWidth(), y1+image.getHeight(), 1, 1);
+						}
+					}
 				}
 			}
 		}

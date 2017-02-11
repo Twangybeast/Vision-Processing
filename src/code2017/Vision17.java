@@ -6,6 +6,10 @@ import java.awt.image.DataBufferByte;
 import java.io.PrintStream;
 import java.util.ArrayList;
 
+import edgedetector.Conv;
+import edgedetector.EdgeDetector;
+
+import java.awt.Rectangle;
 import visionCore.RGB;
 import visionCore.Vision;
 
@@ -25,6 +29,11 @@ public class Vision17
 	
 	public boolean[][] map=null;
 	public int[][][] rgb=null;
+	public ArrayList<Particle> edges=null;
+	public ArrayList<Particle> particles=null;
+	public Particle particle=null;
+	public Particle pair=null;
+	
 	public Property property=Property.getIdealGear();
 	//Called when vision is initialized, preferably before autonomous begins
 	public void init()
@@ -37,24 +46,52 @@ public class Vision17
 		Target target= new Target();
 		map=createMap(image);
 		ArrayList<Particle> particles;
-		particles = Vision17.findParticles(map);
-		
+		EdgeDetector ed=new EdgeDetector(4);
+		ed.init(Conv.generateDoubleMap(image));
+		ed.exec();
+		ArrayList<Particle> edges=ed.getEdges();
+		this.edges=edges;
+		findCorners(edges);
+		particles=fillEdge(edges);
 		if(particles.size()==0)
 		{
 			return target;
 		}
-		findProperties(particles);
+		particles=matchParticles(particles);
+		this.particles=particles;
+		for (int i=0; i<particles.size();i++)
+		{
+			particles.get(i).scores=new Score[6];
+			particles.get(i).scores[0]=diagRect(particles.get(i));
+			particles.get(i).scores[1]=coverage(particles.get(i));
+			//particles.get(i).scores[2]=moment(particles.get(i));
+			//particles.get(i).scores[3]=profile(particles.get(i));
+			particles.get(i).scores[4]=green(particles.get(i));
+			particles.get(i).scores[5]=center(particles.get(i));
+		}
 		
 		evaluateScoreBoiler(particles);
 		//Really simple code that needs to be updated
 		filterFarParticles(particles, 240.0);
 		Particle particle = findBestParticle(particles);
-		target= findTargetFromParticle(particle);
-		target=setGearTargetPosition(target, particle, map);
+		this.particle=particle;
+		Particle pair= pairParticles(particle, particles, onLeft(map, particle));
+		this.pair=pair;
+		Particle[] pairs= new Particle[2];
+		pairs[0]=particle;
+		pairs[1]=pair;
+		target=setGearPairPosition(target, pairs, this.image);
 		System.out.printf("Target: (%f, %f)\n", target.x, target.y);
 		return target;
 	}
-	public Score diagRect(Particle particle)
+	public static void findCorners(ArrayList<Particle> particles)
+	{
+		for(int i=0;i<particles.size();i++)
+		{
+			diagRect(particles.get(i));
+		}
+	}
+	public static Score diagRect(Particle particle)
 	{
 		/*
 		 * Corner order for reference
@@ -98,7 +135,9 @@ public class Vision17
 		particle.setTWidth((int) width);
 		particle.setTHeight((int) height);
 		//particle.setAngle(Math.atan((particle.corners[2].y-particle.corners[3].y)/(1.0*particle.corners[2].x-particle.corners[3].x)));
-		particle.setAngle(Math.atan((particle.corners[2].y-particle.corners[3].y)/(1.0*(particle.corners[3].x-particle.corners[2].x))));
+		double angleRatio1=((particle.corners[2].y-particle.corners[3].y)/(1.0*(particle.corners[3].x-particle.corners[2].x)));
+		double angleRatio2=((particle.corners[0].y-particle.corners[1].y)/(1.0*(particle.corners[1].x-particle.corners[0].x)));
+		particle.setAngle(Math.atan((angleRatio1+angleRatio2)/2));
 		//particle.setAngle(Math.atan2(particle.corners[3].x-particle.corners[2].x,particle.corners[2].y-particle.corners[3].y));
 		double ratio = (height * 1.0) / (width * 1.0) * 1.0;
 		return new Score(ratio, ScoreType.EQUIV_RECT);
@@ -289,15 +328,20 @@ public class Vision17
 		for(int i=0; i<particles.size();i++)
 		{
 			int totalScore = 0;
-			for(int j=0; j<SCORE_PATTERN.length;j++)
+			for(int j=0; j<particles.get(i).scores.length;j++)
 			{
 				int s=0;
-				s=particles.get(i).scores[j].getScore(property);
+				Score score =particles.get(i).scores[j];
+				if(score!=null)
+				{
+					s=score.getScore(property);
+				}
 				totalScore= totalScore + s;
 			}
 			particles.get(i).score=totalScore;
 		}
 	}
+
 	
 	private void filterFarParticles(ArrayList<Particle> particles, double maxDistance)
 	{
@@ -323,8 +367,11 @@ public class Vision17
 		{
 			if(particles.get(i).score<bestScore)
 			{
-				p=particles.get(i);
-				bestScore=particles.get(i).score;
+				if(particles.get(i).count > 100)
+				{
+					p=particles.get(i);
+					bestScore=particles.get(i).score;
+				}
 			}
 		}
 		return p;
@@ -341,6 +388,128 @@ public class Vision17
 		target = new Target(x, y, particle.getAngle(), particle.distance);
 		return target;
 	}
+	public static Particle pairParticles(Particle particle, ArrayList<Particle> particles, boolean onLeft)
+	{
+		Particle pair=null;
+		Point center=getParticleCenter(particle);
+		int centerSeparation=(int) (8.25*particle.getTHeight()/5.0);
+		if(!onLeft)
+		{
+			centerSeparation=-centerSeparation;
+		}
+		int dx=(int)(Math.cos(particle.getAngle())*centerSeparation);
+		int dy=(int)(Math.sin(particle.getAngle())*centerSeparation);
+		center.translate(dx, dy);
+		double lowestDistance=Double.POSITIVE_INFINITY;
+		for(int i=0;i<particles.size();i++)
+		{
+			double distance= distance(center, getParticleCenter(particles.get(i)));
+			if(distance<lowestDistance)
+			{
+				if((particles.get(i).count*1.0) / particle.count > 0.1 )
+				{
+					lowestDistance = distance;
+					pair= particles.get(i);
+				}
+			}
+		}
+		if(pair==null)
+		{
+			System.out.println("WARNING: Real number was not less than infinity. Immient errors. Location: pairParticles");
+		}
+		return pair;
+	}
+	public static Point getParticleCenter(Particle particle)
+	{
+		int x=0;
+		int y=0;
+		for(int i=0;i<particle.corners.length;i++)
+		{
+			x=x+particle.corners[i].x;
+			y=y+particle.corners[i].y;
+		}
+		return new Point((int)((x*1.0)/particle.corners.length), (int)((y*1.0)/particle.corners.length));
+	}
+	public static ArrayList<Particle> matchParticles(ArrayList<Particle> particles)
+	{
+		ArrayList<Particle> newParticles=new ArrayList<Particle>();
+		for(int i=0;i<particles.size();i++)
+		{
+			boolean addedParticle=false;
+			for(int j=0;j<particles.size();j++)
+			{
+				int dx=Math.abs(particles.get(i).x-particles.get(j).x);
+				int dy=Math.min(Math.abs(particles.get(i).y-(particles.get(j).y)+particles.get(j).getHeight()), Math.abs(particles.get(j).y-(particles.get(i).y)+particles.get(i).getHeight()));
+				// ha ha! Good luck reading these lines.
+				if(dx<particles.get(i).getTWidth()*1.0 && dy<particles.get(i).getHeight()*1.0 && (Math.abs(particles.get(i).getTWidth()-particles.get(j).getTWidth())*1.0)/particles.get(i).getTWidth()<0.1)
+				{
+					newParticles.add(mergeParticles(particles.get(i), particles.get(j)));
+					addedParticle=true;
+					break;
+				}
+			}
+			if(!addedParticle)
+			{
+				newParticles.add(particles.get(i));
+			}
+		}
+		return particles;
+	}
+	public static Particle mergeParticles(Particle p1, Particle p2)
+	{
+		Particle ptop;
+		Particle pbottom;
+		if(p1.y<p2.y)
+		{
+			ptop=p1;
+			pbottom=p2;
+		}
+		else
+		{
+			ptop=p2;
+			pbottom=p1;
+		}
+		Rectangle r1=new Rectangle(ptop.x, ptop.y, ptop.getWidth(), ptop.getHeight());
+		Rectangle r2= (new Rectangle(pbottom.x, pbottom.y, pbottom.getWidth(), pbottom.getHeight()));
+		Rectangle r;
+		int rx=Math.min(ptop.x, pbottom.x);
+		int rw=Math.max(pbottom.x+pbottom.getWidth(), ptop.x+ptop.getWidth())-rx;
+		r = new Rectangle(rx, ptop.y, rw, pbottom.getHeight()+pbottom.y-ptop.y);
+		Particle particle = new Particle(r.x, r.y, new boolean[(int)(r.getHeight())][(int)(r.getWidth())]);
+		for(int x=ptop.x;x<ptop.getWidth();x++)
+		{
+			for(int y=ptop.y;y<ptop.getHeight();y++)
+			{
+				particle.setGlobalValue(x, y, ptop.getGlobalValue(x, y));
+			}
+		}
+		for(int x=pbottom.x;x<pbottom.getWidth();x++)
+		{
+			for(int y=pbottom.y;y<pbottom.getHeight();y++)
+			{
+				particle.setGlobalValue(x, y, pbottom.getGlobalValue(x, y));
+			}
+		}
+		particle = drawLine(particle, ptop.corners[2], pbottom.corners[0]);
+		particle = drawLine(particle, ptop.corners[3], pbottom.corners[1]);
+		particle= fillEdge(particle, false);
+		return particle;
+	}
+	public static Particle drawLine(Particle particle, Point p1, Point p2)
+	{
+		int y1=p1.y;
+		int x1=p1.x;
+		int y2=p2.y;
+		int x2=p2.x;
+		int dy= y2-y1;
+		int dx= x2-x1;
+		for(int y=y1;y<=y2;y++)
+		{
+			int x= x1 + dx * (y - y1)/dy;
+			particle.setGlobalValue(x, y, true);
+		}
+		return particle;
+	}
 	private Target setGearTargetPosition(Target target, Particle particle, boolean[][] map)
 	{
 		boolean onLeft=onLeft(map, particle);
@@ -356,6 +525,27 @@ public class Vision17
 		center.translate(dx, dy);
 		particle.tLocation=new Point(center.x, center.y);
 		target=findTargetFromParticle(particle);
+		return target;
+	}
+	public static Target setGearPairPosition(Target target, Particle[] pair, BufferedImage image)
+	{
+		Point p1, p2;
+		if(pair[0].x<pair[1].x)
+		{
+			p1= getParticleCenter(pair[0]);
+			p2= getParticleCenter(pair[1]);
+		}
+		else
+		{
+			p1= getParticleCenter(pair[1]);
+			p2= getParticleCenter(pair[0]);
+		}
+		Point location = new Point((p1.x+p2.x)/2, (p1.y+p2.y)/2);
+		double x = ((location.getX()) - (image.getWidth() / 2.0)) / (image.getWidth() / 2.0);
+		double y = -1.0 * ((location.getY()) - (image.getHeight() / 2.0)) / (image.getHeight() / 2.0);
+		//Radians counterclockwise
+		double angle= Math.atan(((p1.y-p2.y)/(1.0*(p2.x-p1.x))));	
+		target = new Target(x, y, angle, findParticleDistance(distance(p1, p2), 8.25, image.getWidth()));
 		return target;
 	}
 	private boolean onLeft(boolean[][] map, Particle particle)
@@ -413,6 +603,185 @@ public class Vision17
 			}
 		}
 		return total;
+	}
+	public static Particle fillEdge(Particle edge, boolean lineEnabled)
+	{
+		Particle particle = new Particle(edge);
+		particle.corners=edge.corners;
+		particle.setTWidth(edge.getTWidth());
+		particle.setTHeight(edge.getTHeight());
+		particle.setTarget(edge.getTarget());
+		//Initial fill
+		for(int x=0;x<particle.getWidth();x++)
+		{
+			for(int y=0;y<particle.getHeight();y++)
+			{
+				particle.setLocalValue(x, y, true);
+			}
+		}
+		//Approach from N, S, W, E directions in straight line patterns. Match the outer "mold" of the edge, but solidifiy it
+		//N
+		for(int x=0;x<edge.getWidth();x++)
+		{
+			for(int y=0;y<edge.getHeight();y++)
+			{
+				if(edge.getLocalValue(x, y))
+				{
+					break;
+				}
+				else
+				{
+					particle.setLocalValue(x, y, false);
+				}
+			}
+		}
+		//S
+		for(int x=0;x<edge.getWidth();x++)
+		{
+			for(int y=edge.getHeight()-1;y>=0;y--)
+			{
+				if(edge.getLocalValue(x, y))
+				{
+					break;
+				}
+				else
+				{
+					particle.setLocalValue(x, y, false);
+				}
+			}
+		}
+		//W
+		for(int y=0;y<edge.getHeight();y++)
+		{
+			for(int x=0;x<edge.getWidth();x++)
+			{
+				if(edge.getLocalValue(x, y))
+				{
+					break;
+				}
+				else
+				{
+					particle.setLocalValue(x, y, false);
+				}
+			}
+		}
+		//E
+		for(int y=0;y<edge.getHeight();y++)
+		{
+			for(int x=edge.getWidth()-1;x>=0;x--)
+			{
+				if(edge.getLocalValue(x, y))
+				{
+					break;
+				}
+				else
+				{
+					particle.setLocalValue(x, y, false);
+				}
+			}
+		}
+		particle.recount();
+		if(Math.abs(particle.count-edge.count)<edge.count*0.1)
+		{
+			if(lineEnabled)
+			{
+				particle=getParticleFromLine(edge);
+			}
+			else
+			{
+				System.out.println("WARNING: Line fix not working. Location getParticleFromLine and fillEdge");
+			}
+		}
+		particle.recount();
+		return particle;
+	}
+	public static Particle getParticleFromLine(Particle edge)
+	{
+		/*//Location of "hole"
+		boolean left=false;
+		boolean top=false;
+		for(int x=0;x<edge.getWidth();x++)
+		{
+			if(edge.getLocalValue(x, edge.getHeight()/2))
+			{
+				left=x>edge.getWidth()/2;
+			}
+		}
+		for(int y=0;y<edge.getHeight();y++)
+		{
+			if(edge.getLocalValue(edge.getWidth()/2, y))
+			{
+				top=y>edge.getHeight()/2;
+			}
+		}
+		Point p1;
+		Point p2;
+		if(left)
+		{
+			if(top)
+			{
+				p1=edge.corners[2];
+				p2=edge.corners[1];
+			}
+			else
+			{
+				p1=edge.corners[0];
+				p2=edge.corners[3];
+			}
+		}
+		else
+		{
+			if(top)
+			{
+				p1=edge.corners[0];
+				p2=edge.corners[3];
+			}
+			else
+			{
+				p1=edge.corners[2];
+				p2=edge.corners[1];
+			}
+		}
+		int dx= (p1.x+p2.x)/2;
+		int dy= (p1.y+p2.y)/2;
+		*/
+		int dx = edge.x + (edge.getWidth()/2);
+		int dy = edge.y + (edge.getHeight()/2);
+		Particle particle = new Particle(edge);
+		for(int x=0;x<edge.getWidth();x++)
+		{
+			for(int y=0;y<edge.getHeight();y++)
+			{
+				particle.setLocalValue(x, y, edge.getLocalValue(x, y));
+			}
+		}
+		
+		for(int x=edge.x;x<edge.x+edge.getWidth();x++)
+		{
+			for(int y=edge.y;y<edge.y+edge.getHeight();y++)
+			{
+				if(edge.getGlobalValue(x, y))
+				{
+					Point p=new Point(x, y);
+					p.translate(-dx, -dy);
+					p = new Point(-p.x, -p.y);
+					p.translate(dx, dy);
+					particle.globalExpand(p.x, p.y);
+					particle.setGlobalValue(p.x, p.y, true);
+				}
+			}
+		}
+		particle=fillEdge(particle, false);
+		return particle;
+	}
+	public static ArrayList<Particle> fillEdge(ArrayList<Particle> edge)
+	{
+		ArrayList<Particle> particles=new ArrayList<Particle>();
+		for(int i=0;i<edge.size();i++)
+		{
+			particles.add(fillEdge(edge.get(i), true));
+		}
+		return particles;
 	}
 	public static ArrayList<Particle> findParticles(boolean[][] map)// Generates rectangles for every point
 	{
@@ -574,6 +943,11 @@ public class Vision17
 	{
 		double distance = idealHeight* imageHeight / (2 * particle.getTHeight()* Math.tan(VIEW_ANGLE*(3.0/4.0)));
 		particle.distance=distance;
+		return distance;
+	}
+	public static double findParticleDistance(double width, double idealwidth, int imagewidth)
+	{
+		double distance = idealwidth* imagewidth/ (2 * width* Math.tan(VIEW_ANGLE));
 		return distance;
 	}
 	public static double distance(Point p, Point p2)

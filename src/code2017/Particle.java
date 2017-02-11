@@ -23,6 +23,7 @@ public class Particle
 		this.x=particle.x;
 		this.y=particle.y;
 		this.map=new boolean[particle.map.length][particle.map[0].length];
+		count = 0;
 	}
 	public Particle(int x, int y, boolean[][] map)
 	{
@@ -85,6 +86,21 @@ public class Particle
 	public boolean[][] getMap()
 	{
 		return map;
+	}
+	public void recount()
+	{
+		int recount=0;
+		for(int x=0;x<this.getWidth();x++)
+		{
+			for(int y=0;y<this.getHeight();y++)
+			{
+				if(this.getLocalValue(x, y))
+				{
+					recount++;
+				}
+			}
+		}
+		this.count=recount;
 	}
 	public boolean getGlobalValue(int x, int y)
 	{
