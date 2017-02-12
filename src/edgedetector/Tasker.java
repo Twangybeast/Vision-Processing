@@ -23,10 +23,10 @@ public class Tasker implements Runnable
 				result=Conv.conv(input, Conv.GAUSS, region);
 				break;
 			case XDERIV:
-				result=Conv.conv(input, Conv.SOBEL_X, region);
+				result=Conv.conv(input, Conv.SOBEL_X, region, 0.0);
 				break;
 			case YDERIV:
-				result=Conv.conv(input, Conv.SOBEL_Y, region);
+				result=Conv.conv(input, Conv.SOBEL_Y, region, 0.0);
 				break;
 			case MAGNITUDE:
 				result=Conv.magnitude(input, input2, region);

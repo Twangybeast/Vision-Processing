@@ -39,6 +39,39 @@ public class Conv
 			{4, 16, 26, 16, 4},
 			{1, 4, 7, 4, 1}
 		};
+	public static double conv(double[][] map, int[][] mask, int x1, int y1, double defaultVal)
+	{
+		if(mask.length==0)
+		{
+			return 0;
+		}
+		if(mask.length!=mask[0].length)
+		{
+			return 0;
+		}
+		int rad=(int) ((mask.length-1)/2.0);
+		double result=0;
+		for(int i=0;i<mask.length;i++)
+		{
+			for(int j=0;j<mask[0].length;j++)
+			{
+				int x=(j-rad)+x1;
+				int y=(i-rad)+y1;
+				double value;
+				//If location is not in the map, default to the center value
+				if(x>=0&&y>=0&&y<map.length&&x<map[0].length)
+				{
+					value=map[y][x];
+				}
+				else
+				{
+					value=defaultVal;
+				}
+				result=result+(value*mask[i][j]);
+			}
+		}
+		return result;
+	}
 	public static double conv(double[][] map, int[][] mask, int x1, int y1)
 	{
 		if(mask.length==0)
@@ -73,6 +106,25 @@ public class Conv
 		return result;
 	}
 	//Gives conv value for a larger region
+	public static double[][] conv(double[][] map, int[][] mask, Rectangle region, double defaultVal)
+	{
+		Rectangle r=region.intersection(new Rectangle(0, 0, map[0].length, map.length));
+		if(!region.equals(r))
+		{
+			System.out.println("WARNING: Region did not fall completely inside the map.");
+		}
+		double[][] result=new double[(int) r.getHeight()][(int) r.getWidth()];
+		for(int x1=r.x;x1<r.x+r.width;x1++)
+		{
+			for(int y1=r.y;y1<r.y+r.height;y1++)
+			{
+				int i=y1-r.y;
+				int j=x1-r.x;
+				result[i][j]=conv(map, mask, x1, y1, defaultVal);
+			}
+		}
+		return result;
+	}
 	public static double[][] conv(double[][] map, int[][] mask, Rectangle region)
 	{
 		Rectangle r=region.intersection(new Rectangle(0, 0, map[0].length, map.length));

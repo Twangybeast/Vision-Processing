@@ -70,6 +70,11 @@ public class PictureTester extends JFrame implements Runnable
 				//map=v.map;
 				this.edges=v.edges;
 				this.particles=v.particles;
+				if(target==null)
+				{
+					System.out.println("TARGET IS NULL!");
+					System.exit(1);
+				}
 				this.target=target.getPixelPoint(image.getWidth(), image.getHeight());
 				this.particle=v.particle;
 				this.pair=v.pair;

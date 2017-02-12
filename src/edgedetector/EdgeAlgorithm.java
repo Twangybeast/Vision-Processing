@@ -8,7 +8,7 @@ import code2017.Particle;
 
 public class EdgeAlgorithm
 {
-	final static double THRESHOLD_LOW=50;
+	final static double THRESHOLD_LOW=40;
 	final static double THRESHOLD_HIGH=80;
 	final static int[][] PASS_THINNING_LIST=
 		{
@@ -23,9 +23,10 @@ public class EdgeAlgorithm
 		Rectangle image=new Rectangle(raw[0].length, raw.length);
 		
 		ArrayList<Particle> toReturn = new ArrayList<Particle>();
-		int iStart = 0, jStart = 0, iMax = 0, jMax = 0;
-		iMax = map[0].length;
-		jMax = map.length;
+		//Ignore edge of image, likely to have edge if image is bright
+		int iStart = 1, jStart = 1, iMax = 0, jMax = 0;
+		iMax = map[0].length-2;
+		jMax = map.length-2;
 		for (int i = iStart; i < iMax; i++)
 		{
 			for (int j = jStart; j < jMax; j++)

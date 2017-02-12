@@ -38,7 +38,7 @@ public class Score
 		switch(type)
 		{
 			case EQUIV_RECT:
-				score=calcScore(ratio, property.heightWidthRatio, 0.1);
+				score=calcScore(ratio, property.heightWidthRatio, 0.7);
 				break;
 			case COVERAGE:
 				//score=calcScore(ratio, 1.0/3.0, 0.1858);

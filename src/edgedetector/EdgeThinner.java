@@ -67,6 +67,7 @@ public class EdgeThinner
 				}
 			}
 		}
+		particle.shorten();
 		return particle;
 	}
 	public static ArrayList<Particle> thinEdge(ArrayList<Particle> particles, double[][] mag, double[][] dx, double[][] dy)
