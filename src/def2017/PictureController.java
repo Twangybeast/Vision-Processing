@@ -38,6 +38,7 @@ public class PictureController implements Runnable
 		findPath();
 		imageFiles=findPictureFiles(new File(path), "jpg");
 		frame=new PictureTester(getImage(new File(path+"1ftH1ftD0Angle0Brightness.jpg")));
+		System.out.println("Picture: "+imageNumber+" \t--   "+imageFiles[imageNumber].getName());
 		Thread t=new Thread(this);
 		t.start();
 		try
@@ -115,7 +116,6 @@ public class PictureController implements Runnable
 		String input;
 		while(true)
 		{
-			System.out.println("Input a Number");
 			input=s.nextLine();
 			try
 			{

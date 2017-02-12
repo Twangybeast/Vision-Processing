@@ -1,4 +1,4 @@
-package piController;
+package clientController;
 
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
@@ -34,6 +34,10 @@ public class ImageByteConverter
 			System.out.printf("WARNING: Invalid file format. Location: getImageToBytes\n");
 			return null;
 		}
+		if(image==null)
+		{
+			return null;
+		}
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
 		try
 		{
@@ -50,6 +54,10 @@ public class ImageByteConverter
 	}
 	public static BufferedImage getBytesToImage(byte[] bytes)
 	{
+		if(bytes==null)
+		{
+			return null;
+		}
 		ByteArrayInputStream in = new ByteArrayInputStream(bytes);
 		try
 		{

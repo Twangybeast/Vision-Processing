@@ -25,7 +25,7 @@ public class EdgeFiller
 		//Approach from N, S, W, E directions in straight line patterns. Match the outer "mold" of the edge, but solidifiy it
 		boolean[] reachEnd=new boolean[4];
 		int count;
-		final double failPercent=0.5;
+		final double failPercent=0.3;
 		final double reachPercent=0.6;
 		//N
 		count=0;
@@ -139,15 +139,11 @@ public class EdgeFiller
 		{
 			reachEnd[3]=false;
 		}
-		if(Math.abs(particle.count-edge.count)<edge.count)
+		if(particle.count*1.0/(edge.getTWidth()*edge.getTHeight())<0.5)
 		{
 			if(lineEnabled)
 			{
 				particle=fixParticle(particle, edge, reachEnd);
-			}
-			else
-			{
-				System.out.printf("WARNING: Line fix not working. Location getParticleFromLine and fillEdge. Size of particle: [%d]\n", particle.count);
 			}
 		}
 		particle.recount();

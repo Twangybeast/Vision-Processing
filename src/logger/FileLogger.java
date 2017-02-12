@@ -18,10 +18,6 @@ public class FileLogger extends Logger
 	{
 		initialized=true;
 		File file = new File(path);
-		if(!file.exists())
-		{
-			file.mkdirs();
-		}
 		try
 		{
 			writer = new PrintWriter(file);
@@ -34,17 +30,23 @@ public class FileLogger extends Logger
 	public void println(String s)
 	{
 		checkInit();
-		writer.println(getTimeString() + s);
+		String ts=getTimeString();
+		System.out.println(ts+s);
+		writer.println(ts + s);
 	}
 	public void print(String s)
 	{
 		checkInit();
-		writer.print(getTimeString() + s);
+		String ts=getTimeString();
+		System.out.print(ts+s);
+		writer.print(ts + s);
 	}
 	public void printf(String s, Object ...args)
 	{
 		checkInit();
-		writer.printf(getTimeString()+s, args);
+		String ts=getTimeString();
+		System.out.printf(ts+s, args);
+		writer.printf(ts+s, args);
 	}
 	public void close()
 	{

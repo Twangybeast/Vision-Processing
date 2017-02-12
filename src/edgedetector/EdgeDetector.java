@@ -54,7 +54,6 @@ public class EdgeDetector
 		mag=getResult();
 		
 		ArrayList<Particle> edges=EdgeAlgorithm.findEdges(mag);
-		System.out.println(edges.size());
 		//edges=EdgeAlgorithm.thinEdge(edges);
 		edges=EdgeThinner.thinEdge(edges, mag, dx, dy);
 		this.edges=edges;

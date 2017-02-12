@@ -19,6 +19,8 @@ import visionCore.Vision;
 
 public class Vision17 
 {
+	//Time Variables. Delete all when done.
+	private long[] t=new long[3];
 	private BufferedImage image1=null;
 	private BufferedImage image2=null;
 	private Dimension image=null;
@@ -31,8 +33,7 @@ public class Vision17
 				ScoreType.CENTERNESS
 		};
 	public static double VIEW_ANGLE= Math.toRadians(67.9446);
-	public final static double MIN_SIZE_RATIO = 500.0/(640.0*480.0); 
-	public PrintStream log = System.out;
+	public final static double MIN_SIZE_RATIO = 500.0/(640.0*480.0);
 	
 	public boolean[][] map=null;
 	public int[][][] rgb=null;
@@ -42,7 +43,7 @@ public class Vision17
 	public Particle pair=null;
 	
 	public Property property=Property.getIdealGear();
-	FileLogger fl = new FileLogger("C:\\log."+System.currentTimeMillis()+".txt");
+	FileLogger fl = null;
 	//Called when vision is initialized, preferably before autonomous begins
 	public void init()
 	{
@@ -51,13 +52,19 @@ public class Vision17
 	//Called when queued for processing
 	public Target exec()
 	{
+		fl = new FileLogger("D:\\log\\log."+System.currentTimeMillis()+".txt");
+		t[0]=System.currentTimeMillis();
+		t[1]=System.currentTimeMillis();
 		rgb=getDualImage(image1, image2);
+		fl.printf("INFO: Dual Image Time: [%d] ms"+System.lineSeparator(), System.currentTimeMillis()-t[0]);
+		t[0]=System.currentTimeMillis();
 		image = new Dimension(image2.getWidth(), image2.getHeight());
-		fl = new FileLogger("C:\\log."+System.currentTimeMillis()+".txt");
 		ArrayList<Particle> particles;
 		EdgeDetector ed=new EdgeDetector(4);
 		ed.init(Conv.generateDoubleMap(rgb));
 		ed.exec();
+		fl.printf("INFO: Edge find time: [%d] ms"+System.lineSeparator(), System.currentTimeMillis()-t[0]);
+		t[0]=System.currentTimeMillis();
 		ArrayList<Particle> edges=ed.getEdges();
 		this.edges=edges;
 		findCorners(edges);
@@ -97,19 +104,26 @@ public class Vision17
 		this.pair=pair;
 		if(pair==null)
 		{
-			lf.println("WARNING: Pair not found. Returning NULL target.");
+			fl.println("WARNING: Pair not found. Returning NULL target.");
+			fl.close();
 			return Target.getNullTarget();
 		}
 		Particle[] pairs= new Particle[2];
 		pairs[0]=particle;
 		pairs[1]=pair;
-		target=setGearPairPosition(target, pairs, this.image);
+		Target target=setGearPairPosition(new Target(), pairs, this.image);
 		if(target==null)
 		{
-			lf.println("WARNING: Found null target. Need investigation. Returning NULL target.");
+			fl.println("WARNING: Found null target. Need investigation. Returning NULL target.");
+			fl.close();
 			return Target.getNullTarget();
 		}
-		System.out.printf("Target: (%f, %f)\n", target.x, target.y);
+		fl.printf("INFO: Target: (%f, %f)"+System.lineSeparator(), target.x, target.y);
+		fl.printf("INFO: Angle: [%f] degrees"+System.lineSeparator(), Math.toDegrees(target.angle));
+		fl.printf("INFO: Distance: [%f] in."+System.lineSeparator(), target.distance);
+		fl.printf("INFO: Miscellaneous time: [%d] ms"+System.lineSeparator(), System.currentTimeMillis()-t[0]);
+		fl.printf("INFO: Total time: [%d] ms"+System.lineSeparator(), System.currentTimeMillis()-t[1]);
+		fl.close();
 		return target;
 	}
 	public static void findCorners(ArrayList<Particle> particles)
@@ -211,8 +225,8 @@ public class Vision17
 		long u02=m02-(centroid.y*m01);
 		
 		double momentOfInertia=Moment.moi(particle, centroid);
-		System.out.printf("Moment of inertia: [%f]\n",momentOfInertia);
-		//System.out.printf("Mx: [%f]\tMy: [%f]\t Md: [%f]\t Mz: [%f]\n",mx/(particle.count*1.0),my/(particle.count*1.0),md/(particle.count*1.0), mz/(particle.count*1.0));
+		fl.printf("Moment of inertia: [%f]"+System.lineSeparator(),momentOfInertia);
+		//fl.printf("Mx: [%f]\tMy: [%f]\t Md: [%f]\t Mz: [%f]"+System.lineSeparator(),mx/(particle.count*1.0),my/(particle.count*1.0),md/(particle.count*1.0), mz/(particle.count*1.0));
 		return new Score(momentOfInertia,ScoreType.MOMENT);
 		//return null;
 	}
@@ -314,8 +328,8 @@ public class Vision17
 	public Score center(Particle particle)
 	{
 		Point p = getParticleCenter(particle);
-		int dx = Math.abs(p.x-(image.getWidth()/2));
-		int dy = Math.abs(p.y-(image.getHeight()/2));
+		int dx = (int) Math.abs(p.x-(image.getWidth()/2));
+		int dy = (int) Math.abs(p.y-(image.getHeight()/2));
 		double ratio = Math.sqrt(Math.pow( (dx*0.5/image.getWidth()), 4) + Math.pow((dy*0.5/image.getHeight()), 4));
 		return new Score(ratio, ScoreType.CENTERNESS);
 	}
@@ -430,7 +444,7 @@ public class Vision17
 		target = new Target(x, y, particle.getAngle(), particle.distance);
 		return target;
 	}
-	public static Particle pairParticles(Particle particle, ArrayList<Particle> particles, int ignoreIndex)
+	public Particle pairParticles(Particle particle, ArrayList<Particle> particles, int ignoreIndex)
 	{
 		Particle pair=null;
 		//Note: L/R depicts the position of the CURRENT particle, not the pair
@@ -463,7 +477,7 @@ public class Vision17
 		}
 		if(pair==null)
 		{
-			System.out.println("WARNING: Real number was not less than infinity. Immient errors. Location: pairParticles");
+			fl.println("WARNING: Real number was not less than infinity. Immient errors. Location: pairParticles");
 		}
 		return pair;
 	}
@@ -493,9 +507,9 @@ public class Vision17
 						int dx=Math.abs(particles.get(i).x-particles.get(j).x);
 						int dy=Math.min(Math.abs(particles.get(i).y-(particles.get(j).y)+particles.get(j).getHeight()), Math.abs(particles.get(j).y-(particles.get(i).y)+particles.get(i).getHeight()));
 						// ha ha! Good luck reading these lines.
-						if(dx<=Math.max(particles.get(i).getTWidth(), 10)*1.0 
-								&& dy<=Math.max(particles.get(i).getHeight()*1.0, 20) 
-								&& (Math.abs(particles.get(i).getTWidth()-particles.get(j).getTWidth())*1.0)/Math.max(particles.get(i).getTWidth(), 20)<0.1)
+						if(dx<=Math.max(Math.max(particles.get(i).getTWidth(), 10), particles.get(j).getTWidth())*1.0 
+								&& dy<=Math.max(Math.max(particles.get(i).getHeight()*1.0, 20), particles.get(j).getHeight()*1.0) 
+								&& (Math.abs(particles.get(i).getTWidth()-particles.get(j).getTWidth())*1.0)/Math.max(Math.max(particles.get(i).getTWidth(), 20),particles.get(j).getTWidth())<0.1)
 						{
 							newParticles.add(mergeParticles(particles.get(i), particles.get(j)));
 							addedParticle=true;
@@ -584,7 +598,7 @@ public class Vision17
 		target=findTargetFromParticle(particle);
 		return target;
 	}
-	public static Target setGearPairPosition(Target target, Particle[] pair, Dimension image)
+	public Target setGearPairPosition(Target target, Particle[] pair, Dimension image)
 	{
 		Point p1, p2;
 		if(pair==null)
@@ -593,7 +607,7 @@ public class Vision17
 		}
 		if(pair[0]==null||pair[1]==null)
 		{
-			lf.println("BAD STUFF HAPPENED! EXITING!");
+			fl.println("BAD STUFF HAPPENED! EXITING!");
 			return null;
 		}
 		if(pair[0].x<pair[1].x)
@@ -926,8 +940,16 @@ public class Vision17
 	}
 	public static int[][][] getDualImage(BufferedImage image1, BufferedImage image2)
 	{
-		int[][][] rgb1=getArray(image1);
+		int[][][] rgb1; 
 		int[][][] rgb2=getArray(image2);
+		if(image1==null)
+		{
+			rgb1=new int[rgb2.length][rgb2[0].length][3];
+		}
+		else
+		{
+			rgb1=getArray(image1);
+		}
 		int[][][] rgbD=new int[rgb1.length][rgb1[0].length][rgb1[0][0].length];
 		int min=Integer.MAX_VALUE;
 		int max=Integer.MIN_VALUE;
@@ -935,7 +957,7 @@ public class Vision17
 		{
 			for(int j=0;j<rgb1[0].length;j++)
 			{
-				for(int k=0;k<rgb1[0][0].length;k++)
+				for(int k=0;k<3;k++)
 				{
 					int d=rgb2[i][j][k]-rgb1[i][j][k];
 					min = Math.min(d, min);
@@ -949,7 +971,7 @@ public class Vision17
 		{
 			for(int j=0;j<rgb1[0].length;j++)
 			{
-				for(int k=0;k<rgb1[0][0].length;k++)
+				for(int k=0;k<3;k++)
 				{
 					rgbD[i][j][k]=(int)((rgbD[i][j][k]-min)*factor);
 				}

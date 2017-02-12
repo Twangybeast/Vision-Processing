@@ -27,11 +27,12 @@ public class PictureTester extends JFrame implements Runnable
 	final int d=KeyEvent.VK_D;
 	//End Controls
 	private BufferedImage image;
+	private int[][][] rgb=null;
 	private Insets inset;
 	private KeyboardInput keyboard=new KeyboardInput();
 	private Thread t;
 	private int imageQ=0;
-	private boolean processImage=true;
+	private boolean processImage=false;
 	private Vision17 v;
 	private boolean[][] map;
 	private ArrayList<Particle> edges=null;
@@ -39,7 +40,7 @@ public class PictureTester extends JFrame implements Runnable
 	private Point target=new Point(-1,-1);
 	private Particle particle=null;
 	private Particle pair=null;
-	private final double wMult=2;
+	private final double wMult=3;
 	private final double hMult=2;
 	public PictureTester(BufferedImage image)
 	{
@@ -65,7 +66,7 @@ public class PictureTester extends JFrame implements Runnable
 				processImage=false;
 				
 				v=new Vision17();
-				v.setImage(image);
+				v.setImage(null, image);
 				Target target=v.exec();
 				//map=v.map;
 				this.edges=v.edges;
@@ -73,8 +74,7 @@ public class PictureTester extends JFrame implements Runnable
 				this.target=target.getPixelPoint(image.getWidth(), image.getHeight());
 				this.particle=v.particle;
 				this.pair=v.pair;
-				System.out.printf("Angle: [%f]\n",Math.toDegrees(target.angle));
-				System.out.println("Processed");
+				this.rgb=v.rgb;
 			}
 			keyboard.updateKeys();
 			if(keyboard.keyOnce(d)||keyboard.keyOnce(d))
@@ -232,9 +232,20 @@ public class PictureTester extends JFrame implements Runnable
 				}
 			}
 		}
+		if(rgb!=null)
+		{
+			for(int i=0;i<rgb.length;i++)
+			{
+				for(int j=0;j<rgb[0].length;j++)
+				{
+					g.setColor(new Color(rgb[i][j][0], rgb[i][j][1], rgb[i][j][2]));
+					g.fillRect(j+image.getWidth(), i, 1, 1);
+				}
+			}
+		}
 		g.setColor(Color.CYAN);
 		g.fillRect(target.x-(radius/2), target.y-(radius/2), radius, radius);
-		g.drawImage(image, image.getWidth(), 0, null);
+		g.drawImage(image, image.getWidth()*2, 0, null);
 		g.fillRect(target.x+image.getWidth()-(radius/2), target.y-(radius/2), radius, radius);
 		
 		frameG.drawImage(picture, inset.left, inset.top, null);
