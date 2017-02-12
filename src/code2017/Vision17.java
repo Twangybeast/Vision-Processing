@@ -1,5 +1,6 @@
 package code2017;
 
+import java.awt.Dimension;
 import java.awt.Point;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
@@ -9,6 +10,7 @@ import java.util.ArrayList;
 import edgedetector.Conv;
 import edgedetector.EdgeDetector;
 import edgedetector.EdgeFiller;
+import logger.FileLogger;
 
 import java.awt.Rectangle;
 
@@ -17,7 +19,9 @@ import visionCore.Vision;
 
 public class Vision17 
 {
-	private BufferedImage image=null;
+	private BufferedImage image1=null;
+	private BufferedImage image2=null;
+	private Dimension image=null;
 	static ScoreType[] SCORE_PATTERN = 
 		{
 				ScoreType.EQUIV_RECT,
@@ -27,6 +31,7 @@ public class Vision17
 				ScoreType.CENTERNESS
 		};
 	public static double VIEW_ANGLE= Math.toRadians(67.9446);
+	public final static double MIN_SIZE_RATIO = 500.0/(640.0*480.0); 
 	public PrintStream log = System.out;
 	
 	public boolean[][] map=null;
@@ -37,6 +42,7 @@ public class Vision17
 	public Particle pair=null;
 	
 	public Property property=Property.getIdealGear();
+	FileLogger fl = new FileLogger("C:\\log."+System.currentTimeMillis()+".txt");
 	//Called when vision is initialized, preferably before autonomous begins
 	public void init()
 	{
@@ -45,11 +51,12 @@ public class Vision17
 	//Called when queued for processing
 	public Target exec()
 	{
-		Target target= new Target();
-		map=createMap(image);
+		rgb=getDualImage(image1, image2);
+		image = new Dimension(image2.getWidth(), image2.getHeight());
+		fl = new FileLogger("C:\\log."+System.currentTimeMillis()+".txt");
 		ArrayList<Particle> particles;
 		EdgeDetector ed=new EdgeDetector(4);
-		ed.init(Conv.generateDoubleMap(image));
+		ed.init(Conv.generateDoubleMap(rgb));
 		ed.exec();
 		ArrayList<Particle> edges=ed.getEdges();
 		this.edges=edges;
@@ -57,7 +64,9 @@ public class Vision17
 		particles=EdgeFiller.fillEdge(edges);
 		if(particles.size()==0)
 		{
-			return target;
+			fl.println("WARNING: No edges detected. Returning NULL target.");
+			fl.close();
+			return Target.getNullTarget();
 		}
 		particles=matchParticles(particles);
 		this.particles=particles;
@@ -75,17 +84,30 @@ public class Vision17
 		evaluateScoreBoiler(particles);
 		//Really simple code that needs to be updated
 		filterFarParticles(particles, 240.0);
+		filterSmallParticles(particles, (int)(MIN_SIZE_RATIO * image.getWidth()*image.getHeight()));
+		if(particles.size()==0)
+		{
+			fl.println("WARNING: All particles filtered. Returning NULL particle.");
+			fl.close();
+			return Target.getNullTarget();
+		}
 		Particle particle = findBestParticle(particles);
 		this.particle=particle;
-		Particle pair= pairParticles(particle, particles, onLeft(map, particle), particles.indexOf(particle));
+		Particle pair= pairParticles(particle, particles, particles.indexOf(particle));
 		this.pair=pair;
+		if(pair==null)
+		{
+			lf.println("WARNING: Pair not found. Returning NULL target.");
+			return Target.getNullTarget();
+		}
 		Particle[] pairs= new Particle[2];
 		pairs[0]=particle;
 		pairs[1]=pair;
 		target=setGearPairPosition(target, pairs, this.image);
 		if(target==null)
 		{
-			return null;
+			lf.println("WARNING: Found null target. Need investigation. Returning NULL target.");
+			return Target.getNullTarget();
 		}
 		System.out.printf("Target: (%f, %f)\n", target.x, target.y);
 		return target;
@@ -358,7 +380,7 @@ public class Vision17
 		ArrayList<Particle> disqualified= new ArrayList<Particle>();
 		for(int i=0;i<particles.size();i++)
 		{
-			findParticleDistance(particles.get(i), 5.0, image.getHeight());
+			findParticleDistance(particles.get(i), 5.0, (int)(image.getHeight()));
 			if(particles.get(i).distance>maxDistance)
 			{
 				disqualified.add(particles.get(i));
@@ -369,6 +391,19 @@ public class Vision17
 			particles.remove(disqualified.get(i));
 		}
 	}
+	private ArrayList<Particle> filterSmallParticles(ArrayList<Particle> particles, int minSize)
+	{
+		ArrayList<Particle> toRemove = new ArrayList<Particle>();
+		for(Particle particle: particles)
+		{
+			if(particle.count<minSize)
+			{
+				toRemove.add(particle);
+			}
+		}
+		particles.removeAll(toRemove);
+		return particles;
+	}
 	private Particle findBestParticle(ArrayList<Particle> particles)
 	{
 		Particle p=null;
@@ -377,11 +412,8 @@ public class Vision17
 		{
 			if(particles.get(i).score<bestScore)
 			{
-				if(particles.get(i).count > 100)
-				{
-					p=particles.get(i);
-					bestScore=particles.get(i).score;
-				}
+				p=particles.get(i);
+				bestScore=particles.get(i).score;
 			}
 		}
 		return p;
@@ -398,7 +430,7 @@ public class Vision17
 		target = new Target(x, y, particle.getAngle(), particle.distance);
 		return target;
 	}
-	public static Particle pairParticles(Particle particle, ArrayList<Particle> particles, boolean onLeft, int ignoreIndex)
+	public static Particle pairParticles(Particle particle, ArrayList<Particle> particles, int ignoreIndex)
 	{
 		Particle pair=null;
 		//Note: L/R depicts the position of the CURRENT particle, not the pair
@@ -412,18 +444,18 @@ public class Vision17
 		dx = (int)(Math.cos(particle.getAngle())*centerSeparationR);
 		dy = (int)(Math.sin(particle.getAngle())*centerSeparationR);
 		centerR.translate(dx, dy);
-		double lowestDistance=Double.POSITIVE_INFINITY;
+		double lowestScore=Double.POSITIVE_INFINITY;
 		for(int i=0;i<particles.size();i++)
 		{
 			if(i!=ignoreIndex)
 			{
 				double distance= Math.min(distance(centerL, getParticleCenter(particles.get(i))), distance(centerR, getParticleCenter(particles.get(i))));
 				int score=particles.get(i).score;
-				if(distance+score<lowestDistance)
+				if(distance+score<lowestScore)
 				{
 					if((particles.get(i).count*1.0) / particle.count > 0.1 )
 					{
-						lowestDistance = distance+score;
+						lowestScore = distance+score;
 						pair= particles.get(i);
 					}
 				}
@@ -552,7 +584,7 @@ public class Vision17
 		target=findTargetFromParticle(particle);
 		return target;
 	}
-	public static Target setGearPairPosition(Target target, Particle[] pair, BufferedImage image)
+	public static Target setGearPairPosition(Target target, Particle[] pair, Dimension image)
 	{
 		Point p1, p2;
 		if(pair==null)
@@ -561,7 +593,7 @@ public class Vision17
 		}
 		if(pair[0]==null||pair[1]==null)
 		{
-			System.out.println("BAD STUFF HAPPENED! EXITING!");
+			lf.println("BAD STUFF HAPPENED! EXITING!");
 			return null;
 		}
 		if(pair[0].x<pair[1].x)
@@ -579,7 +611,7 @@ public class Vision17
 		double y = -1.0 * ((location.getY()) - (image.getHeight() / 2.0)) / (image.getHeight() / 2.0);
 		//Radians counterclockwise
 		double angle= Math.atan(((p1.y-p2.y)/(1.0*(p2.x-p1.x))));	
-		target = new Target(x, y, angle, findParticleDistance(distance(p1, p2), 8.25, image.getWidth()));
+		target = new Target(x, y, angle, findParticleDistance(distance(p1, p2), 8.25, (int)(image.getWidth())));
 		return target;
 	}
 	private boolean onLeft(boolean[][] map, Particle particle)
@@ -810,9 +842,10 @@ public class Vision17
 	{
 		return Math.sqrt(Math.pow(p.x - p2.x, 2) + Math.pow(p.y - p2.y, 2));
 	}
-	public void setImage(BufferedImage image)
+	public void setImage(BufferedImage image1, BufferedImage image2)
 	{
-		this.image=image;
+		this.image1=image1;
+		this.image2=image2;
 	}
 	public boolean[][] createMap(BufferedImage picture)// Because x & y are irrelevant here, do not bother changing i & j places in map array
 	{
@@ -890,6 +923,39 @@ public class Vision17
 		}
 
 		return result;
+	}
+	public static int[][][] getDualImage(BufferedImage image1, BufferedImage image2)
+	{
+		int[][][] rgb1=getArray(image1);
+		int[][][] rgb2=getArray(image2);
+		int[][][] rgbD=new int[rgb1.length][rgb1[0].length][rgb1[0][0].length];
+		int min=Integer.MAX_VALUE;
+		int max=Integer.MIN_VALUE;
+		for(int i=0;i<rgb1.length;i++)
+		{
+			for(int j=0;j<rgb1[0].length;j++)
+			{
+				for(int k=0;k<rgb1[0][0].length;k++)
+				{
+					int d=rgb2[i][j][k]-rgb1[i][j][k];
+					min = Math.min(d, min);
+					max = Math.max(d, max);
+					rgbD[i][j][k]=d;
+				}
+			}
+		}
+		double factor = 255.0/(max-min);
+		for(int i=0;i<rgb1.length;i++)
+		{
+			for(int j=0;j<rgb1[0].length;j++)
+			{
+				for(int k=0;k<rgb1[0][0].length;k++)
+				{
+					rgbD[i][j][k]=(int)((rgbD[i][j][k]-min)*factor);
+				}
+			}
+		}
+		return rgbD;
 	}
 	public static boolean[][] useHsv(boolean[][] map, int[][][] image)
 	{

@@ -213,19 +213,23 @@ public class Conv
 		}
 		return result;
 	}
-	public static double[][] generateDoubleMap(BufferedImage image)
+	public static double[][] generateDoubleMap(int[][][] rgb)
 	{
-		int[][][] rgb_map=Vision17.getArray(image);
-		double[][] map=new double[rgb_map.length][rgb_map[0].length];
+		double[][] map=new double[rgb.length][rgb[0].length];
 		for(int i=0;i<map.length;i++)
 		{
 			for(int j=0;j<map[0].length;j++)
 			{
-				map[i][j]=Conv.scoreRGB(rgb_map[i][j][0], rgb_map[i][j][1], rgb_map[i][j][2]);
+				map[i][j]=Conv.scoreRGB(rgb[i][j][0], rgb[i][j][1], rgb[i][j][2]);
 			}
 		}
 		
 		return map;
+	}
+	public static double[][] generateDoubleMap(BufferedImage image)
+	{
+		int[][][] rgb_map=Vision17.getArray(image);
+		return generateDoubleMap(rgb_map);
 	}
 	public static double scoreRGB(int red, int green, int blue)
 	{
