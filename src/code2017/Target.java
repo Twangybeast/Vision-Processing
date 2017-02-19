@@ -15,6 +15,7 @@ public class Target
 	public double angle;
 	public double distance;
 	public boolean nullTarget=false;
+	public boolean singleTarget=false;
 	public Target(double x, double y, double angle, double distance)
 	{
 		this.x=x;

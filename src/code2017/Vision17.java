@@ -32,7 +32,7 @@ public class Vision17
 				ScoreType.GREENESS,
 				ScoreType.CENTERNESS
 		};
-	public static double VIEW_ANGLE= Math.toRadians(67.9446);
+	public static double VIEW_ANGLE= Math.toRadians(67.9446)/2;
 	public final static double MIN_SIZE_RATIO = 500.0/(640.0*480.0);
 	
 	public boolean[][] map=null;
@@ -104,9 +104,12 @@ public class Vision17
 		this.pair=pair;
 		if(pair==null)
 		{
-			fl.println("WARNING: Pair not found. Returning NULL target.");
+			fl.println("INFO: Pair not found. Returning partial target.");
 			fl.close();
-			return Target.getNullTarget();
+			Target target=new Target();
+			target=setSingleRectanglePosition(target, particle, image);
+			printTarget(target);
+			return target;
 		}
 		Particle[] pairs= new Particle[2];
 		pairs[0]=particle;
@@ -118,12 +121,7 @@ public class Vision17
 			fl.close();
 			return Target.getNullTarget();
 		}
-		fl.printf("INFO: Target: (%f, %f)"+System.lineSeparator(), target.x, target.y);
-		fl.printf("INFO: Angle: [%f] degrees"+System.lineSeparator(), Math.toDegrees(target.angle));
-		fl.printf("INFO: Distance: [%f] in."+System.lineSeparator(), target.distance);
-		fl.printf("INFO: Miscellaneous time: [%d] ms"+System.lineSeparator(), System.currentTimeMillis()-t[0]);
-		fl.printf("INFO: Total time: [%d] ms"+System.lineSeparator(), System.currentTimeMillis()-t[1]);
-		fl.close();
+		printTarget(target);
 		return target;
 	}
 	public static void findCorners(ArrayList<Particle> particles)
@@ -598,6 +596,17 @@ public class Vision17
 		target=findTargetFromParticle(particle);
 		return target;
 	}
+	public Target setSingleRectanglePosition(Target target, Particle particle, Dimension image)
+	{
+		Point location = new Point(getParticleCenter(particle));
+		double x = ((location.getX()) - (image.getWidth() / 2.0)) / (image.getWidth() / 2.0);
+		double y = -1.0 * ((location.getY()) - (image.getHeight() / 2.0)) / (image.getHeight() / 2.0);
+		double angle = (Math.atan(((particle.corners[2].y-particle.corners[3].y)/(1.0*(particle.corners[3].x-particle.corners[2].x))))+Math.atan(((particle.corners[0].y-particle.corners[1].y)/(1.0*(particle.corners[1].x-particle.corners[0].x)))))/2.0;
+		double distance = findParticleDistance(particle, 5.0, image.height);
+		target=new Target(x, y, angle, distance);
+		target.singleTarget=true;
+		return target;
+	}
 	public Target setGearPairPosition(Target target, Particle[] pair, Dimension image)
 	{
 		Point p1, p2;
@@ -855,6 +864,15 @@ public class Vision17
 	public static double distance(Point p, Point p2)
 	{
 		return Math.sqrt(Math.pow(p.x - p2.x, 2) + Math.pow(p.y - p2.y, 2));
+	}
+	public void printTarget(Target target)
+	{
+		fl.printf("INFO: Target: (%f, %f)"+System.lineSeparator(), target.x, target.y);
+		fl.printf("INFO: Angle: [%f] degrees"+System.lineSeparator(), Math.toDegrees(target.angle));
+		fl.printf("INFO: Distance: [%f] in."+System.lineSeparator(), target.distance);
+		fl.printf("INFO: Miscellaneous time: [%d] ms"+System.lineSeparator(), System.currentTimeMillis()-t[0]);
+		fl.printf("INFO: Total time: [%d] ms"+System.lineSeparator(), System.currentTimeMillis()-t[1]);
+		fl.close();
 	}
 	public void setImage(BufferedImage image1, BufferedImage image2)
 	{

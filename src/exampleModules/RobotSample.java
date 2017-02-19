@@ -3,6 +3,8 @@ package exampleModules;
 import java.awt.image.BufferedImage;
 
 import com.github.sarxos.webcam.Webcam;
+import com.github.sarxos.webcam.WebcamException;
+import com.github.sarxos.webcam.ds.v4l4j.V4l4jDriver;
 
 import clientController.RobotModule;
 
@@ -14,8 +16,16 @@ public class RobotSample
 	{
 		RobotModule rm=new RobotModule();
 		rm.init();
-		camera=Webcam.getDefault();
-		camera.open();
+		Webcam.setDriver(new V4l4jDriver());
+		try
+		{
+			camera=Webcam.getDefault();
+			camera.open();
+		}
+		catch(WebcamException e)
+		{
+			e.printStackTrace();
+		}
 	}
 	//Note: image1 is light off, image2 is light on
 	public void moveToTarget()
@@ -51,11 +61,20 @@ public class RobotSample
 				distance=target[3];//Ask me if this is in inches or feet
 				break;
 			}
+			if(target[4]==0.5)
+			{
+				x=target[0];
+				y=target[1];
+				angle=target[2];
+				distance=target[3];//Ask me if this is in inches or feet
+				//Partial Target Move Code. Ask for clarification.
+				//TODO
+			}
 		}
 		//End Magic
 		//Move Code
 		//See above for your variables.
-		
+		//TODO
 	}
 	public BufferedImage getImage()
 	{

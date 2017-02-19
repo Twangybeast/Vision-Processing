@@ -31,7 +31,14 @@ public class RobotModule
 		}
 		else
 		{
-			target[4]=0.0;
+			if(table.getBoolean("Partial", false))
+			{
+				target[4]=0.5;
+			}
+			else
+			{
+				target[4]=0.0;
+			}
 		}
 		return target;
 	}

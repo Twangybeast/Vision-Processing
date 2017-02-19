@@ -1,6 +1,11 @@
 package clientController;
 
 import java.awt.image.BufferedImage;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.util.Collections;
+import java.util.Enumeration;
 
 import code2017.Target;
 import edu.wpi.first.wpilibj.networktables.*;
@@ -10,6 +15,12 @@ public class Client
 	private boolean initialized= false;
 	private NetworkTable table=null;
 	public String ipAddress = "";
+	public static void main(String[] args)
+	{
+		//Test IP
+		Client c = new Client();
+		System.out.printf("Possible IP Found: ["+c.findIP()+"]%n");
+	}
 	public void init()
 	{
 		NetworkTable.setClientMode();
@@ -55,6 +66,7 @@ public class Client
 			table.putNumber("YPosition", target.y);
 			table.putNumber("TargetAngle", target.angle);
 			table.putNumber("TargetDistance", target.distance);
+			table.putBoolean("Partial", target.singleTarget);
 			table.putBoolean("Finished", true);
 		}
 	}
@@ -65,9 +77,34 @@ public class Client
 		return image;
 	}
 	//Module to find IP
-	public String findIP()
+	public String findIP() 
 	{
 		//TO DO
+		Enumeration<NetworkInterface> nets = null;
+		try
+		{
+			nets = NetworkInterface.getNetworkInterfaces();
+		} 
+		catch (SocketException e)
+		{
+			e.printStackTrace();
+		}
+		Top:
+		for (NetworkInterface netint : Collections.list(nets))
+		{
+			if(netint.getName().contains("eth"))
+			{
+				for(InetAddress inetAddress: Collections.list(netint.getInetAddresses()))
+				{
+					String address=inetAddress.toString();
+					if(address.contains("192."))
+					{
+						ipAddress=address.substring(1, address.length()-1);
+						break Top;
+					}
+				}
+			}
+		}
 		return ipAddress;
 	}
 	private void checkInit()
