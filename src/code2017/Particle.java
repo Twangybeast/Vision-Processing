@@ -31,6 +31,23 @@ public class Particle
 		this.y=y;
 		this.map=map;
 	}
+	public static Particle copyParticle(Particle particle)
+	{
+		Particle copy = new Particle(particle);
+		for(int x=0;x<particle.getWidth();x++)
+		{
+			for(int y=0;y<particle.getHeight();y++)
+			{
+				copy.setLocalValue(x, y, particle.getLocalValue(x, y));
+			}
+		}
+		return copy;
+	}
+	public void translate(int dx, int dy)
+	{
+		x=x+dx;
+		y=y+dy;
+	}
 	public double getAngle()
 	{
 		return angle;

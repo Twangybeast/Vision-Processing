@@ -8,8 +8,8 @@ import code2017.Particle;
 
 public class EdgeAlgorithm
 {
-	final static double THRESHOLD_LOW=40;
-	final static double THRESHOLD_HIGH=80;
+	final static double THRESHOLD_LOW=50;
+	final static double THRESHOLD_HIGH=90;
 	final static int[][] PASS_THINNING_LIST=
 		{
 			{0, -1},
@@ -90,6 +90,85 @@ public class EdgeAlgorithm
 							expansion = next;
 						}
 					}
+					toReturn.add(particle);
+				}
+			}
+		}
+		return toReturn;
+	}
+	public static ArrayList<Particle> findEdges(Particle raw)
+	{
+		Particle map=Particle.copyParticle(raw);
+		Rectangle image=new Rectangle(map.getWidth(), map.getHeight());
+		
+		ArrayList<Particle> toReturn = new ArrayList<Particle>();
+		int iStart = 0, jStart = 0, iMax = 0, jMax = 0;
+		iMax = map.getWidth()-1;
+		jMax = map.getHeight()-1;
+		for (int i = iStart; i < iMax; i++)
+		{
+			for (int j = jStart; j < jMax; j++)
+			{
+				if (map.getLocalValue(i, j))
+				{
+					map.setLocalValue(i, j, false);
+					Particle particle = new Particle(i, j, new boolean[1][1]);
+					particle.map[0][0] = true;
+					boolean change = true;
+					Particle expansion = new Particle((int) (particle.getX()), (int) (particle.getY()), new boolean[1][1]);
+					expansion = EdgeAlgorithm.expandAround(i, j, expansion, image);
+					int x;
+					int y;
+					while (change)
+					{
+						Particle next = new Particle((int) (expansion.getX()),(int) (expansion.getY()),new boolean[expansion.map.length][expansion.map[0].length]);
+						change = false;
+						for (int k = 0; k < expansion.getWidth(); k++)
+						{
+							for (int l = 0; l < expansion.getHeight(); l++)
+							{
+								// Compare to picture map values to determine expansion
+								if (expansion.getLocalValue(k, l))
+								{
+									x = (int) (k + expansion.getX());
+									y = (int) (l + expansion.getY());
+									if (map.getLocalValue(x, y))
+									{
+										map.setLocalValue(x, y, false);
+										change = true;
+										// Expand the particle into that square
+										// Determines if size increase of particle required
+										if (x - particle.getX() < 0)
+										{
+											particle.expandLeft();
+										}
+										if (x - particle.getX() >= particle.getWidth())
+										{
+											particle.expandRight();
+										}
+										if (y - particle.getY() < 0)
+										{
+											particle.expandUp();
+										}
+										if (y - particle.getY() >= particle.getHeight())
+										{
+											particle.expandDown();
+										}
+										// Sets particle value
+										particle.setGlobalValue(x, y, true);
+										// Prepares expansion for next cycle
+										next=EdgeAlgorithm.expandAround(x, y, next, image);
+									}
+								}
+							}
+						}
+						if (change)
+						{
+							next.shorten();
+							expansion = next;
+						}
+					}
+					particle.translate(map.x, map.y);
 					toReturn.add(particle);
 				}
 			}

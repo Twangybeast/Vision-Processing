@@ -32,7 +32,7 @@ public class PictureTester extends JFrame implements Runnable
 	private KeyboardInput keyboard=new KeyboardInput();
 	private Thread t;
 	private int imageQ=0;
-	private boolean processImage=false;
+	private boolean processImage=true;
 	private Vision17 v;
 	private boolean[][] map;
 	private ArrayList<Particle> edges=null;

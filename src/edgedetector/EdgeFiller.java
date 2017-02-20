@@ -144,6 +144,10 @@ public class EdgeFiller
 			if(lineEnabled)
 			{
 				particle=fixParticle(particle, edge, reachEnd);
+				if(particle.x<0 || particle.y<0)
+				{
+					return null;
+				}
 			}
 		}
 		particle.recount();
@@ -398,6 +402,10 @@ public class EdgeFiller
 		for(int i=0;i<edge.size();i++)
 		{
 			particles.add(fillEdge(edge.get(i), true));
+		}
+		while(particles.remove(null))
+		{
+			//Removes all null particles. No code inside loop intentional.
 		}
 		return particles;
 	}

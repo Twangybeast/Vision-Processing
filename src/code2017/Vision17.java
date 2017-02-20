@@ -11,6 +11,7 @@ import edgedetector.Conv;
 import edgedetector.EdgeDetector;
 import edgedetector.EdgeFiller;
 import logger.FileLogger;
+import logger.Logger;
 
 import java.awt.Rectangle;
 
@@ -43,7 +44,7 @@ public class Vision17
 	public Particle pair=null;
 	
 	public Property property=Property.getIdealGear();
-	FileLogger fl = null;
+	Logger fl = null;
 	//Called when vision is initialized, preferably before autonomous begins
 	public void init()
 	{
@@ -52,7 +53,17 @@ public class Vision17
 	//Called when queued for processing
 	public Target exec()
 	{
-		fl = new FileLogger("D:\\log\\log."+System.currentTimeMillis()+".txt");
+		int roots;
+		if((roots=FileLogger.decideLoggerType())>=2)
+		{
+			fl = new FileLogger("D:\\log\\log."+System.currentTimeMillis()+".txt");
+			fl.printf("INFO: Multiple roots found. [%d] Roots. Printing to file."+System.lineSeparator(), roots);
+		}
+		else
+		{
+			fl=new Logger();
+			fl.printf("INFO: Not enough roots found. [%d] root. Printing to console."+System.lineSeparator(), roots);
+		}
 		t[0]=System.currentTimeMillis();
 		t[1]=System.currentTimeMillis();
 		rgb=getDualImage(image1, image2);
@@ -83,7 +94,7 @@ public class Vision17
 			particles.get(i).scores[0]=diagRect(particles.get(i));
 			particles.get(i).scores[1]=coverage(particles.get(i));
 			//particles.get(i).scores[2]=moment(particles.get(i));
-			//particles.get(i).scores[3]=profile(particles.get(i));
+			particles.get(i).scores[3]=profile(particles.get(i));
 			particles.get(i).scores[4]=green(particles.get(i));
 			particles.get(i).scores[5]=center(particles.get(i));
 		}
@@ -315,6 +326,10 @@ public class Vision17
 			{
 				if(particle.getGlobalValue(x, y))
 				{
+					if(x<0)
+					{
+						
+					}
 					int[] rgb=this.rgb[y][x];
 					greeness=greeness+rgb[1]-(rgb[0]);
 				}

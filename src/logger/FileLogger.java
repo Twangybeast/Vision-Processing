@@ -1,6 +1,5 @@
 package logger;
 
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -13,6 +12,11 @@ public class FileLogger extends Logger
 	{
 		super();
 		path=filePath;
+	}
+	public static int decideLoggerType()
+	{
+		File[] roots=File.listRoots();
+		return roots.length;
 	}
 	public void init()
 	{

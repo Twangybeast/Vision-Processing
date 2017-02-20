@@ -1,7 +1,5 @@
 package code2017;
 
-import java.util.ArrayList;
-
 public class Score
 {
 	ScoreType type;

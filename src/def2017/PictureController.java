@@ -21,7 +21,7 @@ public class PictureController implements Runnable
 	final static int TARGET_SETTING = 2;
 	static String path=System.getProperty("user.home")+File.separator+"Downloads"+File.separator+"FRC Field 2017"+File.separator+TARGET_TYPES[TARGET_SETTING]+File.separator;
 	int imageNumber=0;
-	boolean newImage=true;
+	boolean newImage=false;
 	File[] imageFiles=null;
 	public static void main(String[] args)
 	{

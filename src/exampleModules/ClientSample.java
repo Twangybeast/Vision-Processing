@@ -40,8 +40,10 @@ public class ClientSample
 	}
 	public void saveImage(BufferedImage image, String name)
 	{
+		File folder=new File(PATH);
 		try
 		{
+			folder.mkdir();
 			ImageIO.write(image, "jpg", new File(PATH+name+".jpg"));
 		} 
 		catch (IOException e)

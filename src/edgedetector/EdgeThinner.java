@@ -76,7 +76,24 @@ public class EdgeThinner
 		{
 			particles.set(i, thinEdge(particles.get(i), mag, dx, dy));
 		}
-		return particles;
+		ArrayList<Particle> newList=new ArrayList<Particle>();
+		for(int i=0;i<particles.size();i++)
+		{
+			ArrayList<Particle> parts=EdgeAlgorithm.findEdges(particles.get(i));
+			switch(parts.size())
+			{
+				case 0:
+					System.out.println("WARNING: no particles found in normal particle, could be good or bad particle");
+					break;
+				case 1:
+					newList.add(particles.get(i));
+					break;
+				default:
+					newList.addAll(parts);
+					break;
+			}
+		}
+		return newList;
 	}
 	public static double[][] getLocalArray(double[][] map, int x, int y)
 	{
