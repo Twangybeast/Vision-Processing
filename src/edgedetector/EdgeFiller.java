@@ -1,9 +1,9 @@
 package edgedetector;
 
-import java.awt.Point;
 import java.util.ArrayList;
 
 import code2017.Particle;
+import code2017.Point;
 
 public class EdgeFiller
 {

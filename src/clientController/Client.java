@@ -79,7 +79,7 @@ public class Client
 	//Module to find IP
 	public String findIP() 
 	{
-		//TO DO
+		//TODO
 		Enumeration<NetworkInterface> nets = null;
 		try
 		{

@@ -2,7 +2,6 @@ package def2017;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Insets;
-import java.awt.Point;
 import java.awt.event.KeyEvent;
 import java.awt.image.*;
 import java.util.ArrayList;
@@ -10,6 +9,7 @@ import java.util.ArrayList;
 import javax.swing.*;
 
 import code2017.Particle;
+import code2017.Point;
 import code2017.Target;
 import code2017.Vision17;
 import edgedetector.EdgeDisplayer;
@@ -40,6 +40,7 @@ public class PictureTester extends JFrame implements Runnable
 	private Point target=new Point(-1,-1);
 	private Particle particle=null;
 	private Particle pair=null;
+	private double angle=Double.NaN;
 	private final double wMult=3;
 	private final double hMult=2;
 	public PictureTester(BufferedImage image)
@@ -75,6 +76,7 @@ public class PictureTester extends JFrame implements Runnable
 				this.particle=v.particle;
 				this.pair=v.pair;
 				this.rgb=v.rgb;
+				this.angle=target.angle;
 			}
 			keyboard.updateKeys();
 			if(keyboard.keyOnce(d)||keyboard.keyOnce(d))
@@ -191,7 +193,42 @@ public class PictureTester extends JFrame implements Runnable
 				}
 			}
 		}
-
+		if(angle!=Double.NaN && particle!=null)
+		{
+			//Draws line of angle in above/below quadrant
+			g.setColor(Color.GREEN);
+			Point center=new Point(image.getWidth()/4,image.getHeight()/4);
+			Point p1=new Point(0,center.y+(int)(center.x*Math.tan(angle)));
+			Point p2=new Point(image.getWidth()/2,center.y-(int)(center.x*Math.tan(angle)));
+			if(particle.x>image.getWidth()/2)
+			{
+				//Right side of image
+				if(particle.y>image.getHeight()/2)
+				{
+					//Bottom
+					g.drawLine(p1.x+image.getWidth()/2, p1.y, p2.x+image.getWidth()/2, p2.y);
+				}
+				else
+				{
+					//Top
+					g.drawLine(p1.x+image.getWidth()/2, p1.y+image.getHeight()/2, p2.x+image.getWidth()/2, p2.y+image.getHeight()/2);
+				}
+			}
+			else
+			{
+				//Left side
+				if(particle.y>image.getHeight()/2)
+				{
+					//Bottom
+					g.drawLine(p1.x, p1.y, p2.x, p2.y);
+				}
+				else
+				{
+					//Top
+					g.drawLine(p1.x, p1.y+image.getHeight()/2, p2.x, p2.y+image.getHeight()/2);
+				}
+			}
+		}
 		if(edges!=null)
 		{
 			for(Particle edge: edges)

@@ -42,6 +42,10 @@ public class RobotModule
 		}
 		return target;
 	}
+	public void process()
+	{
+		table.putBoolean("Process", true);
+	}
 	public void processImage(BufferedImage image1, BufferedImage image2)
 	{
 		transmitImage(image1, "image1");

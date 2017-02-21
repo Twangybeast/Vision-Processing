@@ -1,6 +1,5 @@
 package code2017;
 
-import java.awt.Point;
 
 public class Target 
 {

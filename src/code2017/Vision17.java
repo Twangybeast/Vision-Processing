@@ -1,7 +1,5 @@
 package code2017;
 
-import java.awt.Dimension;
-import java.awt.Point;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.io.PrintStream;
@@ -87,6 +85,7 @@ public class Vision17
 			return Target.getNullTarget();
 		}
 		particles=matchParticles(particles);
+		filterSmallParticles(particles, (int)(MIN_SIZE_RATIO * image.getWidth()*image.getHeight()));
 		this.particles=particles;
 		for (int i=0; i<particles.size();i++)
 		{
@@ -102,7 +101,6 @@ public class Vision17
 		evaluateScoreBoiler(particles);
 		//Really simple code that needs to be updated
 		filterFarParticles(particles, 240.0);
-		filterSmallParticles(particles, (int)(MIN_SIZE_RATIO * image.getWidth()*image.getHeight()));
 		if(particles.size()==0)
 		{
 			fl.println("WARNING: All particles filtered. Returning NULL particle.");
@@ -343,7 +341,7 @@ public class Vision17
 		Point p = getParticleCenter(particle);
 		int dx = (int) Math.abs(p.x-(image.getWidth()/2));
 		int dy = (int) Math.abs(p.y-(image.getHeight()/2));
-		double ratio = Math.sqrt(Math.pow( (dx*0.5/image.getWidth()), 4) + Math.pow((dy*0.5/image.getHeight()), 4));
+		double ratio = Math.sqrt(Math.pow( (dx*0.5/image.getWidth()), 2) + Math.pow((dy*0.5/image.getHeight()), 2));
 		return new Score(ratio, ScoreType.CENTERNESS);
 	}
 	
@@ -478,7 +476,7 @@ public class Vision17
 			{
 				double distance= Math.min(distance(centerL, getParticleCenter(particles.get(i))), distance(centerR, getParticleCenter(particles.get(i))));
 				int score=particles.get(i).score;
-				if(distance+score<lowestScore)
+				if(distance+score<lowestScore && distance < particle.getTHeight()*2.5)
 				{
 					if((particles.get(i).count*1.0) / particle.count > 0.1 )
 					{
@@ -490,7 +488,7 @@ public class Vision17
 		}
 		if(pair==null)
 		{
-			fl.println("WARNING: Real number was not less than infinity. Immient errors. Location: pairParticles");
+			fl.println("INFO: Pairless particle detected.");
 		}
 		return pair;
 	}
@@ -522,7 +520,8 @@ public class Vision17
 						// ha ha! Good luck reading these lines.
 						if(dx<=Math.max(Math.max(particles.get(i).getTWidth(), 10), particles.get(j).getTWidth())*1.0 
 								&& dy<=Math.max(Math.max(particles.get(i).getHeight()*1.0, 20), particles.get(j).getHeight()*1.0) 
-								&& (Math.abs(particles.get(i).getTWidth()-particles.get(j).getTWidth())*1.0)/Math.max(Math.max(particles.get(i).getTWidth(), 20),particles.get(j).getTWidth())<0.1)
+								&& (Math.abs(particles.get(i).getTWidth()-particles.get(j).getTWidth())*1.0)/Math.max(Math.max(particles.get(i).getTWidth(), 20),particles.get(j).getTWidth())<0.1
+								&& !encaptulated(particles.get(i), particles.get(j)))
 						{
 							newParticles.add(mergeParticles(particles.get(i), particles.get(j)));
 							addedParticle=true;
@@ -538,6 +537,29 @@ public class Vision17
 			}
 		}
 		return newParticles;
+	}
+	public static boolean encaptulated(Particle p1, Particle p2)
+	{
+		Particle ptop, pbot;
+		if(p1.y<p2.y)
+		{
+			ptop=p1;
+			pbot=p2;
+		}
+		else
+		{
+			ptop=p2;
+			pbot=p1;
+		}
+		if(ptop.y+ptop.getHeight()>pbot.y+pbot.getHeight())
+		{
+			return true;
+		}
+		if(ptop.y+ptop.getHeight()>pbot.y+5)
+		{
+			return true;
+		}
+		return false;
 	}
 	public static Particle mergeParticles(Particle p1, Particle p2)
 	{
@@ -560,12 +582,19 @@ public class Vision17
 		int rw=Math.max(pbottom.x+pbottom.getWidth(), ptop.x+ptop.getWidth())-rx;
 		r = new Rectangle(rx, ptop.y, rw, pbottom.getHeight()+pbottom.y-ptop.y);
 		Particle particle = new Particle(r.x, r.y, new boolean[(int)(r.getHeight())][(int)(r.getWidth())]);
+		try
+		{
 		for(int x=ptop.x;x<ptop.getWidth()+ptop.x;x++)
 		{
 			for(int y=ptop.y;y<ptop.getHeight()+ptop.y;y++)
 			{
 				particle.setGlobalValue(x, y, ptop.getGlobalValue(x, y));
 			}
+		}
+		}
+		catch(ArrayIndexOutOfBoundsException e)
+		{
+			e.printStackTrace();
 		}
 		for(int x=pbottom.x;x<pbottom.getWidth()+pbottom.x;x++)
 		{
@@ -574,8 +603,8 @@ public class Vision17
 				particle.setGlobalValue(x, y, pbottom.getGlobalValue(x, y));
 			}
 		}
-		particle = drawLine(particle, ptop.corners[2], pbottom.corners[0]);
-		particle = drawLine(particle, ptop.corners[3], pbottom.corners[1]);
+		particle = EdgeFiller.drawLine(particle, ptop.corners[2], pbottom.corners[0]);
+		particle = EdgeFiller.drawLine(particle, ptop.corners[3], pbottom.corners[1]);
 		particle= EdgeFiller.fillEdge(particle, false);
 		return particle;
 	}
@@ -971,10 +1000,11 @@ public class Vision17
 
 		return result;
 	}
+	//Support if first is null
 	public static int[][][] getDualImage(BufferedImage image1, BufferedImage image2)
 	{
-		int[][][] rgb1; 
-		int[][][] rgb2=getArray(image2);
+		int[][][] rgb1, rgb2;
+		rgb2=getArray(image2);
 		if(image1==null)
 		{
 			rgb1=new int[rgb2.length][rgb2[0].length][3];
@@ -982,6 +1012,16 @@ public class Vision17
 		else
 		{
 			rgb1=getArray(image1);
+		}
+		return getDualImage(rgb1, rgb2);
+	}
+	public static int[][][] getDualImage(int[][][] rgb1, int[][][] rgb2)
+	{
+		final double alpha=1.0;
+		final int beta=0;
+		if(rgb1==null)
+		{
+			rgb1=new int[rgb2.length][rgb2[0].length][3];
 		}
 		int[][][] rgbD=new int[rgb1.length][rgb1[0].length][rgb1[0][0].length];
 		int min=Integer.MAX_VALUE;
@@ -1006,11 +1046,19 @@ public class Vision17
 			{
 				for(int k=0;k<3;k++)
 				{
-					rgbD[i][j][k]=(int)((rgbD[i][j][k]-min)*factor);
+					rgbD[i][j][k]=limit((int)(((rgbD[i][j][k]-min)*factor)*alpha)+beta);
 				}
 			}
 		}
 		return rgbD;
+	}
+	public static int limit(int number)
+	{
+		return limit(number, 0, 255);
+	}
+	public static int limit(int number, int min, int max)
+	{
+		return Math.min(Math.max(min, number), max);
 	}
 	public static boolean[][] useHsv(boolean[][] map, int[][][] image)
 	{
