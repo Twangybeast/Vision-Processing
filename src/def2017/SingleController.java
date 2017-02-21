@@ -10,7 +10,7 @@ import code2017.DownloadImages;
 
 public class SingleController 
 {
-	String imagePath="C:\\Users\\Twangybeast\\Downloads\\image.png";
+	String imagePath="D:\\Downloads\\image (1).png";
 	public static void main(String[] args)
 	{
 		SingleController sc=new SingleController();

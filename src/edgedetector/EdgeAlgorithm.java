@@ -8,8 +8,8 @@ import code2017.Particle;
 
 public class EdgeAlgorithm
 {
-	final static double THRESHOLD_LOW=50;
-	final static double THRESHOLD_HIGH=90;
+	final static double THRESHOLD_LOW=60;
+	final static double THRESHOLD_HIGH=100;
 	final static int[][] PASS_THINNING_LIST=
 		{
 			{0, -1},

@@ -15,7 +15,7 @@ import java.awt.Rectangle;
 
 import visionCore.RGB;
 import visionCore.Vision;
-
+//NOTE: When using on RoboRIO, comment out all classes using BufferedImage
 public class Vision17 
 {
 	//Time Variables. Delete all when done.
@@ -1017,8 +1017,11 @@ public class Vision17
 	}
 	public static int[][][] getDualImage(int[][][] rgb1, int[][][] rgb2)
 	{
-		final double alpha=1.0;
-		final int beta=0;
+		double alpha=1.0;
+		int beta=0;
+		int gMax=0;
+		long gTotal=0;
+		int gCount=0;
 		if(rgb1==null)
 		{
 			rgb1=new int[rgb2.length][rgb2[0].length][3];
@@ -1036,10 +1039,25 @@ public class Vision17
 					min = Math.min(d, min);
 					max = Math.max(d, max);
 					rgbD[i][j][k]=d;
+					if(k==1)
+					{
+						if(d>100)
+						{
+							gTotal=gTotal+d;
+							gCount++;
+						}
+					}
 				}
 			}
 		}
+		gMax=(int) (gTotal/gCount);
 		double factor = 255.0/(max-min);
+		beta=Math.min(140-gMax, 0);
+		if(gCount<300)
+		{
+			alpha=1.5;
+		}
+		System.out.printf("Beta generated to be [%d]\ngMax found to be [%d]\n", beta, gMax);
 		for(int i=0;i<rgb1.length;i++)
 		{
 			for(int j=0;j<rgb1[0].length;j++)
@@ -1047,6 +1065,7 @@ public class Vision17
 				for(int k=0;k<3;k++)
 				{
 					rgbD[i][j][k]=limit((int)(((rgbD[i][j][k]-min)*factor)*alpha)+beta);
+					//rgbD[i][j][k]=limit((int)((rgbD[i][j][k]-min)*factor));
 				}
 			}
 		}
@@ -1134,7 +1153,7 @@ public class Vision17
 					hsv[0]=(int) (60.0*(((r-g)/delta)+4));
 					break;
 				default:
-					assert false;//OOH! Fancy Keywords! But realisticly, if it gets here, the program is messed up. A lot.
+					assert false;//OOH! Fancy Keywords! But realistically, if it gets here, the program is messed up. A lot.
 			}
 		}
 		if(max==0)

@@ -33,6 +33,7 @@ public class EdgeDetector
 		{
 			System.out.println("WARNING: EdgeDetector not initialized. Imminent errors.");
 		}
+		long t1=System.currentTimeMillis();
 		prepareThreads(Assignment.SMOOTHEN, map);
 		runThreads();
 		waitForThreads();
@@ -52,7 +53,7 @@ public class EdgeDetector
 		runThreads();
 		waitForThreads();
 		mag=getResult();
-		
+		System.out.println("Canny Time: \t   "+(System.currentTimeMillis()-t1));
 		ArrayList<Particle> edges=EdgeAlgorithm.findEdges(mag);
 		//edges=EdgeAlgorithm.thinEdge(edges);
 		edges=EdgeThinner.thinEdge(edges, mag, dx, dy);
