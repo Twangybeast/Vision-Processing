@@ -6,7 +6,7 @@ import code2017.Particle;
 
 public class EdgeThinner
 {
-	public static boolean evaluateEdgePoint(GradientAngle angle, double[][] local)//Returns true if point is edge
+	public static boolean evaluateEdgePoint(GradientAngle angle, float[][] local)//Returns true if point is edge
 	{
 		switch(angle)
 		{
@@ -50,7 +50,7 @@ public class EdgeThinner
 		System.out.println("WARNING: Code improperly made. Unreachable position reached. Location: GradientAngle switch statement.");
 		return false;
 	}
-	public static Particle thinEdge(Particle particle, double[][] mag, double[][] dx, double[][] dy)
+	public static Particle thinEdge(Particle particle, float[][] mag, float[][] dx, float[][] dy)
 	{
 		for(int x=0;x<particle.getWidth();x++)
 		{
@@ -70,7 +70,7 @@ public class EdgeThinner
 		particle.shorten();
 		return particle;
 	}
-	public static ArrayList<Particle> thinEdge(ArrayList<Particle> particles, double[][] mag, double[][] dx, double[][] dy)
+	public static ArrayList<Particle> thinEdge(ArrayList<Particle> particles, float[][] mag, float[][] dx, float[][] dy)
 	{
 		for(int i=0;i<particles.size();i++)
 		{
@@ -95,19 +95,57 @@ public class EdgeThinner
 		}
 		return newList;
 	}
-	public static double[][] getLocalArray(double[][] map, int x, int y)
+	public static boolean[][] findValidEdges(float[][] mag, float[][] dx, float[][] dy)
 	{
-		double[][] local=new double[3][3];
+		boolean[][] edges=new boolean[mag.length][mag[0].length];
+		for(int i=0;i<mag.length;i++)
+		{
+			for(int j=0;j<mag[0].length;j++)
+			{
+				if(mag[i][j]>EdgeAlgorithm.THRESHOLD_LOW)
+				{
+					if(evaluateEdgePoint(GradientAngle.getAngle(dx[i][j], dy[i][j]), EdgeThinner.getLocalArray(mag, j, i)))
+					{
+						edges[i][j]=true;
+					}
+				}
+			}
+		}
+		return edges;
+	}
+	public static float[][] getLocalArray(float[][] mag, int x, int y)
+	{
+		float[][] local=new float[3][3];
 		for(int i=0;i<3;i++)
 		{
 			for(int j=0;j<3;j++)
 			{
 				int x1=x+j-1;
 				int y1=y+i-1;
-				local[i][j]=getDoubleValue(map, y1, x1, 0.0);
+				local[i][j]=getFloatValue(mag, y1, x1, 0.0f);
 			}
 		}
 		return local;
+	}
+	public static float getFloatValue(float[][] array, int i, int j, float defaultValue)
+	{
+		if(array==null)
+		{
+			return defaultValue;
+		}
+		if(array.length<1)
+		{
+			return defaultValue;
+		}
+		if(i<0||j<0)
+		{
+			return defaultValue;
+		}
+		if(i>=array.length||j>=array[0].length)
+		{
+			return defaultValue;
+		}
+		return array[i][j];
 	}
 	public static double getDoubleValue(double[][] array, int i, int j, double defaultValue)
 	{

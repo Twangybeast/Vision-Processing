@@ -64,20 +64,29 @@ public class Vision17
 		}
 		t[0]=System.currentTimeMillis();
 		t[1]=System.currentTimeMillis();
-		rgb=getDualImage(image1, image2);
+		//rgb=getDualImage(image1, image2);
+		rgb=getSingleImage(image2);
 		fl.printf("INFO: Dual Image Time: [%d] ms"+System.lineSeparator(), System.currentTimeMillis()-t[0]);
 		t[0]=System.currentTimeMillis();
+		t[2]=System.currentTimeMillis();
 		image = new Dimension(image2.getWidth(), image2.getHeight());
 		ArrayList<Particle> particles;
 		EdgeDetector ed=new EdgeDetector(4);
-		ed.init(Conv.generateDoubleMap(rgb));
-		ed.exec();
+		fl.printf("INFO: Misc. Variable setting time: [%d]"+System.lineSeparator(), System.currentTimeMillis()-t[2]);
+		t[2]=System.currentTimeMillis();
+		ed.init(Conv.generateFloatMap(rgb));
+		fl.printf("INFO: EdgeDetector.init time: [%d]"+System.lineSeparator(), System.currentTimeMillis()-t[2]);
+		t[2]=System.currentTimeMillis();
+		ed.execSingle();
+		fl.printf("INFO: Edge Detector exec time: [%d]"+System.lineSeparator(), System.currentTimeMillis()-t[2]);
 		fl.printf("INFO: Edge find time: [%d] ms"+System.lineSeparator(), System.currentTimeMillis()-t[0]);
 		t[0]=System.currentTimeMillis();
 		ArrayList<Particle> edges=ed.getEdges();
 		this.edges=edges;
 		findCorners(edges);
-		particles=EdgeFiller.fillEdge(edges);
+		filterShortParticles(edges, 7);
+		particles=EdgeFiller.fillEdgeTest(edges);
+		filterInvalidParticles(particles, image);
 		if(particles.size()==0)
 		{
 			fl.println("WARNING: No edges detected. Returning NULL target.");
@@ -324,10 +333,6 @@ public class Vision17
 			{
 				if(particle.getGlobalValue(x, y))
 				{
-					if(x<0)
-					{
-						
-					}
 					int[] rgb=this.rgb[y][x];
 					greeness=greeness+rgb[1]-(rgb[0]);
 				}
@@ -398,7 +403,37 @@ public class Vision17
 			particles.get(i).score=totalScore;
 		}
 	}
-
+	public static void filterInvalidParticles(ArrayList<Particle> particles, Dimension d)
+	{
+		while(particles.remove(null)){};
+		for(int i=0;i<particles.size();i++)
+		{
+			Particle p=particles.get(i);
+			if(p.x < 0 || p.y < 0 || p.x+p.getWidth() > d.width || p.y+p.getHeight() > d.height)
+			{
+				for(int x=0;x<p.getWidth();x++)
+				{
+					for(int y=0;y<p.getHeight();y++)
+					{
+						if(x + p.x< 0 || y + p.y< 0 || x+p.x+p.getWidth() > d.width || y+p.y+p.getHeight() > d.height)
+						{
+							p.setLocalValue(x, y, false);
+						}
+					}
+				}
+				p.recount();
+				if(p.count==0)
+				{
+					particles.set(i, null);
+				}
+				else
+				{
+					p.shorten();
+				}
+			}
+		}
+		while(particles.remove(null)){};
+	}
 	
 	private void filterFarParticles(ArrayList<Particle> particles, double maxDistance)
 	{
@@ -422,6 +457,19 @@ public class Vision17
 		for(Particle particle: particles)
 		{
 			if(particle.count<minSize)
+			{
+				toRemove.add(particle);
+			}
+		}
+		particles.removeAll(toRemove);
+		return particles;
+	}
+	private ArrayList<Particle> filterShortParticles(ArrayList<Particle> particles, int minHeight)
+	{
+		ArrayList<Particle> toRemove = new ArrayList<Particle>();
+		for(Particle particle: particles)
+		{
+			if(Math.min(particle.getWidth(), particle.getHeight())<minHeight)
 			{
 				toRemove.add(particle);
 			}
@@ -942,7 +990,7 @@ public class Vision17
 		final int width = image.getWidth();
 		final int height = image.getHeight();
 		final boolean hasAlphaChannel = image.getAlphaRaster() != null;
-
+		System.out.println("Alpha Channel: "+hasAlphaChannel);
 		int[][][] result = new int[height][width][4];
 		if (hasAlphaChannel)
 		{
@@ -1004,20 +1052,190 @@ public class Vision17
 	public static int[][][] getDualImage(BufferedImage image1, BufferedImage image2)
 	{
 		int[][][] rgb1, rgb2;
+		long t1=System.currentTimeMillis();
 		rgb2=getArray(image2);
+		System.out.printf("getArray(image2) time: [%d]ms"+System.lineSeparator(), System.currentTimeMillis()-t1);
+		t1=System.currentTimeMillis();
 		if(image1==null)
 		{
 			rgb1=new int[rgb2.length][rgb2[0].length][3];
 		}
 		else
 		{
+			System.out.println("Getting array for first image...");
 			rgb1=getArray(image1);
 		}
+		System.out.printf("Dual Image null generation time: [%d] ms\n", System.currentTimeMillis()-t1);
 		return getDualImage(rgb1, rgb2);
+	}
+	public static int[][][] getSingleImage(BufferedImage image)
+	{
+		final byte[] pixels = ((DataBufferByte) image.getRaster()
+				.getDataBuffer()).getData();
+		final int width = image.getWidth();
+		final int height = image.getHeight();
+		final boolean hasAlphaChannel = image.getAlphaRaster() != null;
+		int[] red = new int[height*width];
+		int[] green = new int[height*width];
+		int[] blue= new int[height*width];
+		int pixelLength=3;
+		if (hasAlphaChannel)
+		{
+			pixelLength=3;
+		}
+		pixelLength = 4;
+		int gTotal=0;
+		int gCount=0;
+		int max=Integer.MIN_VALUE;
+		int min=Integer.MAX_VALUE;
+		int r, g, b;
+		int maxl, minl;
+		for (int pixel = 0, i = 0; pixel < pixels.length; pixel += pixelLength)
+		{
+			r = (int) pixels[pixel + 3] & 0xff;// red
+			g = (int) pixels[pixel + 2] & 0xff;// green
+			b = (int) pixels[pixel + 1] & 0xff;// blue
+			if(r > g)
+			{
+				maxl=r;
+				minl=g;
+			}
+			else
+			{
+				maxl=g;
+				minl=r;
+			}
+			if(b > maxl)
+			{
+				maxl=b;
+			}
+			else if(b <minl)
+			{
+				minl=b;
+			}
+			if(g>100)
+			{
+				gTotal=gTotal+g;
+				gCount++;
+			}
+			max = Math.max(maxl, max);
+			min = Math.min(maxl, min);
+			
+			red[i]=r;
+			green[i]=g;
+			blue[i]=b;
+			
+			i++;
+		}
+		int gMax;
+		if(gCount==0)
+		{
+			gMax=140;
+		}
+		else
+		{
+			gMax=(int) (gTotal/gCount);
+		}
+		if(max-min==0)
+		{
+			max++;
+		}
+		float factor = 255.0f/(max-min);
+		int beta=Math.min(140-gMax, 0);
+		System.out.printf("Beta generated to be [%d]\ngMax found to be [%d]\n", beta, gMax);
+		float alpha=1.0f;
+		if(gCount<MIN_SIZE_RATIO*2*pixels.length)
+		{
+			alpha=1.5f;
+		}
+		int[][][] rgb=new int[height][width][3];
+		for(int i=0, row = 0, col = 0;i<red.length;i++)
+		{
+			rgb[row][col][0]=limit((int)(((red[i]-min)*factor)*alpha)+beta);
+			rgb[row][col][1]=limit((int)(((green[i]-min)*factor)*alpha)+beta);
+			rgb[row][col][2]=limit((int)(((blue[i]-min)*factor)*alpha)+beta);
+			
+			col++;
+			if (col == width)
+			{
+				col = 0;
+				row++;
+			}
+		}
+		return rgb;
+	}
+	public static int[][][] getSingleImage(int[][][] rgb)
+	{
+		float alpha=1.0f;
+		int beta=0;
+		int gMax=0;
+		long gTotal=0;
+		int gCount=0;
+		int min=Integer.MAX_VALUE;
+		int max=Integer.MIN_VALUE;
+		for(int i=0;i<rgb.length;i++)
+		{
+			for(int j=0;j<rgb[0].length;j++)
+			{
+				for(int k=0;k<3;k++)
+				{
+					int d=rgb[i][j][k];
+					min = Math.min(d, min);
+					max = Math.max(d, max);
+					if(k==1)
+					{
+						if(d>100)
+						{
+							gTotal=gTotal+d;
+							gCount++;
+						}
+					}
+				}
+			}
+		}
+		if(gCount==0)
+		{
+			gMax=140;
+		}
+		else
+		{
+			gMax=(int) (gTotal/gCount);
+		}
+		if(max-min==0)
+		{
+			max++;
+		}
+		float factor = 255.0f/(max-min);
+		beta=Math.min(140-gMax, 0);
+		if(gCount<MIN_SIZE_RATIO*2*rgb.length*rgb[0].length)
+		{
+			alpha=1.5f;
+		}
+		System.out.printf("Beta generated to be [%d]\ngMax found to be [%d]\n", beta, gMax);
+		for(int i=0;i<rgb.length;i++)
+		{
+			for(int j=0;j<rgb[0].length;j++)
+			{
+				for(int k=0;k<3;k++)
+				{
+					rgb[i][j][k]=limit((int)(((rgb[i][j][k]-min)*factor)*alpha)+beta);
+					//rgbD[i][j][k]=limit((int)((rgbD[i][j][k]-min)*factor));
+				}
+			}
+		}
+		return rgb;
+	}
+	public static int max(int a, int b, int c)
+	{
+		return Math.max(Math.max(a, b), c);
+	}
+	public static int min(int a, int b, int c)
+	{
+		return Math.min(Math.min(a, b), c);
 	}
 	public static int[][][] getDualImage(int[][][] rgb1, int[][][] rgb2)
 	{
-		double alpha=1.0;
+		float alpha=1.0f;
 		int beta=0;
 		int gMax=0;
 		long gTotal=0;
@@ -1051,11 +1269,11 @@ public class Vision17
 			}
 		}
 		gMax=(int) (gTotal/gCount);
-		double factor = 255.0/(max-min);
+		float factor = 255.0f/(max-min);
 		beta=Math.min(140-gMax, 0);
 		if(gCount<300)
 		{
-			alpha=1.5;
+			alpha=1.5f;
 		}
 		System.out.printf("Beta generated to be [%d]\ngMax found to be [%d]\n", beta, gMax);
 		for(int i=0;i<rgb1.length;i++)

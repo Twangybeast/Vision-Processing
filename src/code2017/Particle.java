@@ -168,7 +168,10 @@ public class Particle
 	{
 		if(value)
 		{
-			count=count+1;
+			if(!map[y][x])
+			{
+				count=count+1;
+			}
 		}
 		else
 		{
@@ -195,6 +198,30 @@ public class Particle
 	public int getHeight()
 	{
 		return map.length;
+	}public int getQuadrantGlobal(int x, int y)
+	{
+		return getQuadrantLocal(x-this.x, y-this.y);
+	}
+	public int getQuadrantLocal(int x, int y)
+	{
+		/*
+		 * 0 1
+		 * 2 3
+		 */
+		int quad;
+		if(x < getWidth()/2)
+		{
+			quad = 0;
+		}
+		else
+		{
+			quad = 1;
+		}
+		if(y > getHeight()/2)
+		{
+			quad = quad+2;
+		}
+		return quad;
 	}
 	public void expandRight()
 	{

@@ -11,7 +11,7 @@ public class Target
 	 */
 	public double x;
 	public double y;
-	public double angle;
+	public double angle;//RADIANS
 	public double distance;
 	public boolean nullTarget=false;
 	public boolean singleTarget=false;

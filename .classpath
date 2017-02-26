@@ -6,8 +6,8 @@
 	<classpathentry kind="lib" path="lib/slf4j-api-1.7.2.jar"/>
 	<classpathentry kind="lib" path="lib/slf4j-nop-1.7.16.jar"/>
 	<classpathentry kind="lib" path="lib/webcam-capture-0.3.10.jar"/>
-	<classpathentry kind="lib" path="lib/webcam-capture-driver-v4l4j-0.3.12-20151223.203314-1.jar"/>
 	<classpathentry kind="lib" path="lib/v4l4j-0.9.1-r507.jar"/>
+	<classpathentry kind="lib" path="lib/webcam-capture-driver-v4l4j-0.3.10-20140923.154112-11.jar"/>
 	<classpathentry kind="lib" path="lib/bridj-0.6.3-20130316.190111-13.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

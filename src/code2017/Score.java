@@ -36,7 +36,7 @@ public class Score
 		switch(type)
 		{
 			case EQUIV_RECT:
-				score=calcScore(ratio, property.heightWidthRatio, 0.8);
+				score=calcScore(Math.atan(ratio), property.hwatan, 0.3);
 				break;
 			case COVERAGE:
 				//score=calcScore(ratio, 1.0/3.0, 0.1858);
@@ -53,10 +53,14 @@ public class Score
 				score=limit((int) (100*(1.0-ratio)));
 				break;
 			case CENTERNESS:
-				score=limit((int) (ratio*100));
+				score=limit((int) (ratio*200), 0, 50);
 				break;
 		}
 		evaluated=true;
+	}
+	private int limit(int d, int min, int max)
+	{
+		return (int) Math.max(min, Math.min(max, d));
 	}
 	private int limit(int d)
 	{

@@ -58,9 +58,9 @@ public class EdgeDisplayer extends JFrame implements Runnable
 	private final double wMult=2;
 	private final double hMult=2;
 	private ArrayList<Particle> edges=null;
-	private double[][] map=null;
+	private float[][] map=null;
 	private EdgeDetector ed=null;
-	private double[][] mag=null;
+	private float[][] mag=null;
 	public EdgeDisplayer(BufferedImage image)
 	{
 		super();
@@ -85,7 +85,7 @@ public class EdgeDisplayer extends JFrame implements Runnable
 				processImage=false;
 				
 				ed=new EdgeDetector(4);
-				map=Conv.generateDoubleMap(image);
+				map=Conv.generateFloatMap(image);
 				ed.init(map);
 				ed.exec();
 				edges=ed.getEdges();

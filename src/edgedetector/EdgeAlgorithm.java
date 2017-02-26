@@ -4,7 +4,9 @@ import java.awt.Rectangle;
 import java.util.ArrayList;
 import java.util.Arrays;
 
+import pathFinding.PathFinder;
 import code2017.Particle;
+import code2017.Point;
 
 public class EdgeAlgorithm
 {
@@ -17,10 +19,261 @@ public class EdgeAlgorithm
 			{-1, 0},
 			{1, 0}
 		};
-	public static ArrayList<Particle> findEdges(double[][] raw)
+	public static ArrayList<Particle> findEdgesSpecial(float[][] mag, boolean[][] validEdges)
 	{
-		double[][] map=EdgeAlgorithm.copyOf(raw);
-		Rectangle image=new Rectangle(raw[0].length, raw.length);
+		float[][] map=EdgeAlgorithm.copyOf(mag);
+		Rectangle image=new Rectangle(mag[0].length, mag.length);
+		
+		ArrayList<Particle> toReturn = new ArrayList<Particle>();
+		//Ignore edge of image, likely to have edge if image is bright
+		int iStart = 1, jStart = 1, iMax = 0, jMax = 0;
+		iMax = map[0].length-2;
+		jMax = map.length-2;
+		for (int i = iStart; i < iMax; i++)
+		{
+			for (int j = jStart; j < jMax; j++)
+			{
+				if (map[j][i]>=EdgeAlgorithm.THRESHOLD_HIGH)
+				{
+					if(validEdges[j][i])
+					{
+						map[j][i]=0;
+						Particle particle = new Particle(i, j, new boolean[1][1]);
+						particle.map[0][0] = true;
+						Point end=search(new Point(i, j), particle, validEdges, mag);
+						if(!(end.x==i && end.y==j))
+						{
+							Point end2=search(new Point(i, j), particle, validEdges, mag);
+							//Path finding algorithm
+							//PathFinder.findPath(end, end2, particle, mag);
+						}
+						toReturn.add(particle);
+					}
+					else
+					{
+						map[j][i]=0;
+					}
+				}
+			}
+		}
+		return toReturn;
+	}
+	public static Point search(Point p, Particle particle, boolean[][] validEdges, float[][] mag)
+	{
+		int x;
+		int y;
+		//NW, NE, SW, SE, N, S, W, E
+		x=p.x-1;
+		y=p.y-1;
+		if(inMap(validEdges, x, y))
+		{
+			if(validEdges[y][x])
+			{
+				mag[y][x]=0.0f;
+				validEdges[y][x]=false;
+				particle.globalExpand(x, y);
+				particle.setGlobalValue(x, y, true);
+				return search(new Point(x, y), particle, validEdges, mag);
+			}
+		}
+		x=p.x+1;
+		y=p.y-1;
+		if(inMap(validEdges, x, y))
+		{
+			if(validEdges[y][x])
+			{
+				mag[y][x]=0.0f;
+				validEdges[y][x]=false;
+				particle.globalExpand(x, y);
+				particle.setGlobalValue(x, y, true);
+				return search(new Point(x, y), particle, validEdges, mag);
+			}
+		}
+		x=p.x-1;
+		y=p.y+1;
+		if(inMap(validEdges, x, y))
+		{
+			if(validEdges[y][x])
+			{
+				mag[y][x]=0.0f;
+				validEdges[y][x]=false;
+				particle.globalExpand(x, y);
+				particle.setGlobalValue(x, y, true);
+				return search(new Point(x, y), particle, validEdges, mag);
+			}
+		}
+		x=p.x+1;
+		y=p.y+1;
+		if(inMap(validEdges, x, y))
+		{
+			if(validEdges[y][x])
+			{
+				mag[y][x]=0.0f;
+				validEdges[y][x]=false;
+				particle.globalExpand(x, y);
+				particle.setGlobalValue(x, y, true);
+				return search(new Point(x, y), particle, validEdges, mag);
+			}
+		}
+		x=p.x;
+		y=p.y-1;
+		if(inMap(validEdges, x, y))
+		{
+			if(validEdges[y][x])
+			{
+				mag[y][x]=0.0f;
+				validEdges[y][x]=false;
+				particle.globalExpand(x, y);
+				particle.setGlobalValue(x, y, true);
+				return search(new Point(x, y), particle, validEdges, mag);
+			}
+		}
+		x=p.x;
+		y=p.y+1;
+		if(inMap(validEdges, x, y))
+		{
+			if(validEdges[y][x])
+			{
+				mag[y][x]=0.0f;
+				validEdges[y][x]=false;
+				particle.globalExpand(x, y);
+				particle.setGlobalValue(x, y, true);
+				return search(new Point(x, y), particle, validEdges, mag);
+			}
+		}
+		x=p.x-1;
+		y=p.y;
+		if(inMap(validEdges, x, y))
+		{
+			if(validEdges[y][x])
+			{
+				mag[y][x]=0.0f;
+				validEdges[y][x]=false;
+				particle.globalExpand(x, y);
+				particle.setGlobalValue(x, y, true);
+				return search(new Point(x, y), particle, validEdges, mag);
+			}
+		}
+		x=p.x+1;
+		y=p.y;
+		if(inMap(validEdges, x, y))
+		{
+			if(validEdges[y][x])
+			{
+				mag[y][x]=0.0f;
+				validEdges[y][x]=false;
+				particle.globalExpand(x, y);
+				particle.setGlobalValue(x, y, true);
+				return search(new Point(x, y), particle, validEdges, mag);
+			}
+		}
+		return p;
+	}
+	public static boolean inMap(boolean[][] mag, int x, int y)
+	{
+		if(x < 0 || y < 0)
+		{
+			return false;
+		}
+		if(x>=mag[0].length || y >= mag.length)
+		{
+			return false;
+		}
+		return true;
+	}
+	public static ArrayList<Particle> findEdges(float[][] mag, boolean[][] validEdges)
+	{
+		float[][] map=EdgeAlgorithm.copyOf(mag);
+		Rectangle image=new Rectangle(mag[0].length, mag.length);
+		
+		ArrayList<Particle> toReturn = new ArrayList<Particle>();
+		//Ignore edge of image, likely to have edge if image is bright
+		int iStart = 1, jStart = 1, iMax = 0, jMax = 0;
+		iMax = map[0].length-2;
+		jMax = map.length-2;
+		for (int i = iStart; i < iMax; i++)
+		{
+			for (int j = jStart; j < jMax; j++)
+			{
+				if (map[j][i]>=EdgeAlgorithm.THRESHOLD_HIGH)
+				{
+					if(validEdges[j][i])
+					{
+						map[j][i]=0;
+						Particle particle = new Particle(i, j, new boolean[1][1]);
+						particle.map[0][0] = true;
+						boolean change = true;
+						Particle expansion = new Particle((int) (particle.getX()), (int) (particle.getY()), new boolean[1][1]);
+						expansion = EdgeAlgorithm.expandAround(i, j, expansion, image);
+						int x;
+						int y;
+						while (change)
+						{
+							Particle next = new Particle((int) (expansion.getX()),(int) (expansion.getY()),new boolean[expansion.map.length][expansion.map[0].length]);
+							change = false;
+							for (int k = 0; k < expansion.getWidth(); k++)
+							{
+								for (int l = 0; l < expansion.getHeight(); l++)
+								{
+									// Compare to picture map values to determine expansion
+									if (expansion.getLocalValue(k, l))
+									{
+										x = (int) (k + expansion.getX());
+										y = (int) (l + expansion.getY());
+										if (validEdges[y][x])
+										{
+											validEdges[y][x]=false;
+											map[y][x]=0;
+											change = true;
+											// Expand the particle into that square
+											// Determines if size increase of particle required
+											if (x - particle.getX() < 0)
+											{
+												particle.expandLeft();
+											}
+											if (x - particle.getX() >= particle.getWidth())
+											{
+												particle.expandRight();
+											}
+											if (y - particle.getY() < 0)
+											{
+												particle.expandUp();
+											}
+											if (y - particle.getY() >= particle.getHeight())
+											{
+												particle.expandDown();
+											}
+											// Sets particle value
+											particle.setGlobalValue(x, y, true);
+											// Prepares expansion for next cycle
+											next=EdgeAlgorithm.expandAround(x, y, next, image);
+										}
+									}
+								}
+							}
+							if (change)
+							{
+								next.shorten();
+								expansion = next;
+							}
+						}
+						toReturn.add(particle);
+					}
+					else
+					{
+						map[j][i]=0;
+					}
+				}
+			}
+		}
+		return toReturn;
+	}
+	public static ArrayList<Particle> findEdges(float[][] mag)
+	{
+		long t1=System.currentTimeMillis();
+		float[][] map=EdgeAlgorithm.copyOf(mag);
+		System.out.printf("Array copy time: [%d] ms\n", System.currentTimeMillis()-t1);
+		Rectangle image=new Rectangle(mag[0].length, mag.length);
 		
 		ArrayList<Particle> toReturn = new ArrayList<Particle>();
 		//Ignore edge of image, likely to have edge if image is bright
@@ -323,6 +576,14 @@ public class EdgeAlgorithm
 	public static double[][] copyOf(double[][] original) 
 	{
 		double[][] copy = new double[original.length][];
+	    for (int i = 0; i < original.length; i++) {
+	        copy[i] = Arrays.copyOf(original[i], original[i].length);
+	    }
+	    return copy;
+	}
+	public static float[][] copyOf(float[][] original) 
+	{
+		float[][] copy = new float[original.length][];
 	    for (int i = 0; i < original.length; i++) {
 	        copy[i] = Arrays.copyOf(original[i], original[i].length);
 	    }

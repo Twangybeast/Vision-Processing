@@ -33,7 +33,7 @@ public class SingleController
 		try
 		{
 			image=ImageIO.read(file);
-		}
+		} 
 		catch (IOException e)
 		{
 			e.printStackTrace();

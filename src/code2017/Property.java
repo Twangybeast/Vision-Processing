@@ -3,6 +3,7 @@ package code2017;
 public class Property 
 {
 	double heightWidthRatio;
+	double hwatan;
 	double moment;
 	double coverage;
 	double[] xprofile;
@@ -18,6 +19,7 @@ public class Property
 	public Property(double hwr, double m, double c, double[] xp, double[] yp)
 	{
 		this.heightWidthRatio=hwr;
+		this.hwatan=Math.atan(heightWidthRatio);
 		this.moment=m;
 		this.coverage=c;
 		this.xprofile=xp;
@@ -26,6 +28,7 @@ public class Property
 	public Property(double hwr, double m, double c, double[] xp, double[] yp, short id)
 	{
 		this.heightWidthRatio=hwr;
+		this.hwatan=Math.atan(heightWidthRatio);
 		this.moment=m;
 		this.coverage=c;
 		this.xprofile=xp;
