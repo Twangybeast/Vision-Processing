@@ -84,9 +84,10 @@ public class Vision17
 		ArrayList<Particle> edges=ed.getEdges();
 		this.edges=edges;
 		findCorners(edges);
-		filterShortParticles(edges, 7);
+		edges=filterShortParticles(edges, 7);
+		edges=filterLongParticles(edges, image);
 		particles=EdgeFiller.fillEdgeTest(edges);
-		filterInvalidParticles(particles, image);
+		particles=filterInvalidParticles(particles, image);
 		if(particles.size()==0)
 		{
 			fl.println("WARNING: No edges detected. Returning NULL target.");
@@ -94,7 +95,8 @@ public class Vision17
 			return Target.getNullTarget();
 		}
 		particles=matchParticles(particles);
-		filterSmallParticles(particles, (int)(MIN_SIZE_RATIO * image.getWidth()*image.getHeight()));
+		particles=filterSmallParticles(particles, (int)(MIN_SIZE_RATIO * image.getWidth()*image.getHeight()));
+		particles=getTopSizes(particles, 2);
 		this.particles=particles;
 		for (int i=0; i<particles.size();i++)
 		{
@@ -109,7 +111,7 @@ public class Vision17
 		
 		evaluateScoreBoiler(particles);
 		//Really simple code that needs to be updated
-		filterFarParticles(particles, 240.0);
+		particles=filterFarParticles(particles, 240.0);
 		if(particles.size()==0)
 		{
 			fl.println("WARNING: All particles filtered. Returning NULL particle.");
@@ -403,7 +405,7 @@ public class Vision17
 			particles.get(i).score=totalScore;
 		}
 	}
-	public static void filterInvalidParticles(ArrayList<Particle> particles, Dimension d)
+	public static ArrayList<Particle> filterInvalidParticles(ArrayList<Particle> particles, Dimension d)
 	{
 		while(particles.remove(null)){};
 		for(int i=0;i<particles.size();i++)
@@ -433,9 +435,72 @@ public class Vision17
 			}
 		}
 		while(particles.remove(null)){};
+		return particles;
 	}
-	
-	private void filterFarParticles(ArrayList<Particle> particles, double maxDistance)
+	private ArrayList<Particle> getTopSizes(ArrayList<Particle> particles, int count)
+	{
+		if(particles.size()<count)
+		{
+			return particles;
+		}
+		Particle[] largest=new Particle[count];
+		largest=particles.subList(0, count).toArray(largest);
+		largest=sortArray(largest);
+		for(int i=count;i<particles.size();i++)
+		{
+			addToArray(largest, particles.get(i));
+		}
+		particles=new ArrayList<Particle>();
+		for(int i=0;i<largest.length;i++)
+		{
+			particles.add(largest[i]);
+		}
+		return particles;
+	}
+	private Particle[] sortArray(Particle[] particles)
+	{
+		Particle[] sorted=new Particle[1];
+		sorted[0]=particles[0];
+		for(int i=1;i<particles.length;i++)
+		{
+			Particle[] newSorted=new Particle[sorted.length+1];
+			System.arraycopy(sorted, 0, newSorted, 0, sorted.length);
+			addToArray(newSorted, particles[i]);
+			sorted=newSorted;
+		}
+		particles=sorted;
+		return particles;
+	}
+	private void addToArray(Particle[] particles, Particle particle)
+	{
+		if(particles[particles.length-1]!=null && particles[particles.length-1].count>particle.count)
+		{
+			return;
+		}
+		for(int i=0;i<particles.length;i++)
+		{
+			if(particle.count>particles[i].count)
+			{
+				System.arraycopy(particles, i, particles, i+1, particles.length-i-1);
+				particles[i]=particle;
+				return;
+			}
+		}
+	}
+	private int getPowerTwo(int n)
+	{
+		if ((n&(n-1)) == 0)
+		{
+			return n;
+		}
+		int p = 1;
+		while(p < n)
+		{
+			p = p << 1;
+		}
+		return p;
+	}
+	private ArrayList<Particle> filterFarParticles(ArrayList<Particle> particles, double maxDistance)
 	{
 		ArrayList<Particle> disqualified= new ArrayList<Particle>();
 		for(int i=0;i<particles.size();i++)
@@ -450,6 +515,7 @@ public class Vision17
 		{
 			particles.remove(disqualified.get(i));
 		}
+		return particles;
 	}
 	private ArrayList<Particle> filterSmallParticles(ArrayList<Particle> particles, int minSize)
 	{
@@ -457,6 +523,19 @@ public class Vision17
 		for(Particle particle: particles)
 		{
 			if(particle.count<minSize)
+			{
+				toRemove.add(particle);
+			}
+		}
+		particles.removeAll(toRemove);
+		return particles;
+	}
+	private ArrayList<Particle> filterLongParticles(ArrayList<Particle> particles, Dimension image)
+	{
+		ArrayList<Particle> toRemove = new ArrayList<Particle>();
+		for(Particle particle: particles)
+		{
+			if(particle.getWidth() >= image.getWidth() * 0.9 || particle.getHeight() >= image.getHeight() * 0.9)
 			{
 				toRemove.add(particle);
 			}
