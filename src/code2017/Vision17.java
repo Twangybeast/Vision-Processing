@@ -96,7 +96,7 @@ public class Vision17
 		}
 		particles=matchParticles(particles);
 		particles=filterSmallParticles(particles, (int)(MIN_SIZE_RATIO * image.getWidth()*image.getHeight()));
-		particles=getTopSizes(particles, 2);
+		particles=getTopSizes(particles, 10);
 		this.particles=particles;
 		for (int i=0; i<particles.size();i++)
 		{
@@ -479,7 +479,7 @@ public class Vision17
 		}
 		for(int i=0;i<particles.length;i++)
 		{
-			if(particle.count>particles[i].count)
+			if(particles[i]==null||particle.count>particles[i].count)
 			{
 				System.arraycopy(particles, i, particles, i+1, particles.length-i-1);
 				particles[i]=particle;
@@ -679,10 +679,6 @@ public class Vision17
 			pbot=p1;
 		}
 		if(ptop.y+ptop.getHeight()>pbot.y+pbot.getHeight())
-		{
-			return true;
-		}
-		if(ptop.y+ptop.getHeight()>pbot.y+5)
 		{
 			return true;
 		}
@@ -1158,11 +1154,24 @@ public class Vision17
 		int[] green = new int[height*width];
 		int[] blue= new int[height*width];
 		int pixelLength=3;
+		final int redOffset;
+		final int greenOffset;
+		final int blueOffset;
 		if (hasAlphaChannel)
 		{
-			pixelLength=3;
+			pixelLength=4;
+			redOffset=3;
+			greenOffset=2;
+			blueOffset=1;
 		}
-		pixelLength = 4;
+		else
+		{
+			pixelLength=3;
+			redOffset=2;
+			greenOffset=1;
+			blueOffset=0;
+		}
+		System.out.println(pixelLength);
 		int gTotal=0;
 		int gCount=0;
 		int max=Integer.MIN_VALUE;
@@ -1171,9 +1180,9 @@ public class Vision17
 		int maxl, minl;
 		for (int pixel = 0, i = 0; pixel < pixels.length; pixel += pixelLength)
 		{
-			r = (int) pixels[pixel + 3] & 0xff;// red
-			g = (int) pixels[pixel + 2] & 0xff;// green
-			b = (int) pixels[pixel + 1] & 0xff;// blue
+			r = (int) pixels[pixel + redOffset] & 0xff;// red
+			g = (int) pixels[pixel + greenOffset] & 0xff;// green
+			b = (int) pixels[pixel + blueOffset] & 0xff;// blue
 			if(r > g)
 			{
 				maxl=r;
@@ -1392,19 +1401,19 @@ public class Vision17
 				//allowance=Math.max(allowance, (hsv[2]-50)*10);
 				allowance=Math.max(allowance, 15);
 				//While loop stupid way to exit checker when done
-				while(true)
+				Section:
 				{
 					if(Math.abs(hsv[0]-165)>allowance)
 					{
 						valid=false;
-						break;
+						break Section;
 					}
 					if(hsv[2]<30)
 					{
 						valid=false;
-						break;
+						break Section;
 					}
-					break;
+					break Section;
 				}
 				map[i][j] = valid;
 			}

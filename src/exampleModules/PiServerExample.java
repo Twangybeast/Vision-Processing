@@ -21,6 +21,7 @@ import code2017.Vision17;
 //NOTE: Terminate client program prior to terminating this program. 
 public class PiServerExample
 {
+	static final boolean enableSocketRefinding=false;
 	ServerSocket serverSocket=null;
 	Socket clientSocket=null;
 	DataOutputStream out=null;
@@ -79,6 +80,10 @@ public class PiServerExample
 		webcam.setViewSize(new Dimension(320, 240));
 		webcam.open();
 		System.out.println("Webcam opened.");
+		openSockets();
+	}
+	private void openSockets()
+	{
 		try
 		{
 			serverSocket = new ServerSocket(portNumber);
@@ -138,14 +143,8 @@ public class PiServerExample
 				}
 				else
 				{
-					try
-					{
-						Thread.sleep(50);
-					} 
-					catch (InterruptedException e)
-					{
-						e.printStackTrace();
-					}
+					System.out.println("Got [-1] when reading from bytes, breaking from loop and closing webcam.");
+					break;
 				}
 				failConsecutive=0;
 			} 
@@ -159,6 +158,11 @@ public class PiServerExample
 					break;
 				}
 			}
+		}
+		if(enableSocketRefinding)
+		{
+			openSockets();
+			exec();
 		}
 		webcam.close();
 	}

@@ -11,7 +11,7 @@ public class EdgeThinner
 		switch(angle)
 		{
 			case GA0:
-				if(local[1][1]>local[1][0]&&local[1][1]>local[1][2])
+				if(local[1][1]>=local[1][0]&&local[1][1]>local[1][2])
 				{
 					return true;
 				}
@@ -20,7 +20,7 @@ public class EdgeThinner
 					return false;
 				}
 			case GA90:
-				if(local[1][1]>local[0][1]&&local[1][1]>local[2][1])
+				if(local[1][1]>=local[0][1]&&local[1][1]>local[2][1])
 				{
 					return true;
 				}
@@ -29,7 +29,7 @@ public class EdgeThinner
 					return false;
 				}
 			case GA135:
-				if(local[1][1]>local[0][0]&&local[1][1]>local[2][2])
+				if(local[1][1]>=local[0][0]&&local[1][1]>local[2][2])
 				{
 					return true;
 				}
@@ -38,7 +38,7 @@ public class EdgeThinner
 					return false;
 				}
 			case GA45:
-				if(local[1][1]>local[0][2]&&local[1][1]>local[2][0])
+				if(local[1][1]>=local[0][2]&&local[1][1]>local[2][0])
 				{
 					return true;
 				}

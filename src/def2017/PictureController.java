@@ -19,7 +19,8 @@ public class PictureController implements Runnable
 		"Red Boiler"
 	};
 	final static int TARGET_SETTING = 2;
-	static String path=System.getProperty("user.home")+File.separator+"Downloads"+File.separator+"FRC Field 2017"+File.separator+TARGET_TYPES[TARGET_SETTING]+File.separator;
+	//static String path=System.getProperty("user.home")+File.separator+"Downloads"+File.separator+"FRC Field 2017"+File.separator+TARGET_TYPES[TARGET_SETTING]+File.separator;
+	static String path="C:\\Users\\Twangybeast\\Downloads\\Our Images\\";
 	int imageNumber=0;
 	boolean newImage=false;
 	File[] imageFiles=null;
@@ -37,7 +38,7 @@ public class PictureController implements Runnable
 	{
 		findPath();
 		imageFiles=findPictureFiles(new File(path), "jpg");
-		frame=new PictureTester(getImage(new File(path+"1ftH1ftD0Angle0Brightness.jpg")));
+		frame=new PictureTester(getImage(new File(path+"0.jpg")));//path+"1ftH1ftD0Angle0Brightness.jpg")));
 		System.out.println("Picture: "+imageNumber+" \t--   "+imageFiles[imageNumber].getName());
 		Thread t=new Thread(this);
 		t.start();
@@ -88,13 +89,13 @@ public class PictureController implements Runnable
 		if(!file.exists())
 		{
 			System.out.println("Images not found. Attempting to download...");
-			try
+			//try
 			{
-				DownloadImages.download();
-			} catch (IOException e)
+				//DownloadImages.download();
+			} //catch (IOException e)
 			{
-				System.out.println("Download Failed. Exiting...");
-				e.printStackTrace();
+				//System.out.println("Download Failed. Exiting...");
+				//e.printStackTrace();
 				System.exit(1);
 			}
 			System.out.println("Images Successfully Downloaded at "+path);

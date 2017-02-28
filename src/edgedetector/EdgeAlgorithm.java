@@ -10,7 +10,7 @@ import code2017.Point;
 
 public class EdgeAlgorithm
 {
-	final static double THRESHOLD_LOW=60;
+	final static double THRESHOLD_LOW=50;
 	final static double THRESHOLD_HIGH=100;
 	final static int[][] PASS_THINNING_LIST=
 		{

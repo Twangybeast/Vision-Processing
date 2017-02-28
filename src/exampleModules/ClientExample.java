@@ -39,17 +39,22 @@ public class ClientExample
 		ClientExample ce=new ClientExample();
 		ce.initialize();
 		Scanner s=new Scanner(System.in);//Only use for checking connection
-		s.nextLine();//Wait until input. Testing code, don't actually need
-		ce.exec();
-		System.out.printf("Target Found\nX: [%f]\n Y: [%f]\nAngle: [%f]\nDistance: [%f]\n", ce.x, ce.y, ce.angle, ce.distance);
-		if(ce.nullTarget)
+		//while(true)
 		{
-			System.out.println("Null target");
+			s.nextLine();//Wait until input. Testing code, don't actually need
+			ce.exec();
+			System.out.printf("Target Found\nX: [%f]\n Y: [%f]\nAngle: [%f]\nDistance: [%f]\n", ce.x, ce.y, ce.angle, ce.distance);
+			if(ce.nullTarget)
+			{
+				System.out.println("Null target");
+			}
+			if(ce.singleTarget)
+			{
+				System.out.println("Single target");
+			}
 		}
-		if(ce.singleTarget)
-		{
-			System.out.println("Single target");
-		}
+		//ONLY CLOSE WHEN YOU ARE FOR SURE DONE! Doing so will terminate the connection on the server side as well, which won't recreate the connection
+		ce.close();
 	}
 	public void initialize()
 	{
@@ -152,5 +157,18 @@ public class ClientExample
 		{
 			e.printStackTrace();
 		}
+	}
+	public void close()
+	{
+		try
+		{
+			socket.close();
+		} 
+		catch (IOException e)
+		{
+			e.printStackTrace();
+		}
+		out=null;
+		in=null;
 	}
 }
