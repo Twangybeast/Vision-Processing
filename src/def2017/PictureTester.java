@@ -76,6 +76,7 @@ public class PictureTester extends JFrame implements Runnable
 				this.particle=v.particle;
 				this.pair=v.pair;
 				this.rgb=v.rgb;
+				this.map=v.map;
 				this.angle=target.angle;
 			}
 			keyboard.updateKeys();

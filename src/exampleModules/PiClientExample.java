@@ -5,6 +5,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.net.ConnectException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
@@ -19,26 +20,31 @@ import code2017.Target;
 import code2017.Vision17;
 
 //NOTE: Terminate client program prior to terminating this program. 
-public class PiServerExample
+public class PiClientExample
 {
 	static final boolean enableSocketRefinding=false;
-	ServerSocket serverSocket=null;
-	Socket clientSocket=null;
+	Socket socket=null;
 	DataOutputStream out=null;
 	DataInputStream in=null;
 	Webcam webcam=null;
-	StreamImage si = new StreamImage();
-	Thread thread=null;
 	BufferedImage capture;
 	int portNumber=5800;
+	static final String hostName="10.29.76.24";
 	static final byte[] REQUEST = 
 		{
 			0x77
 		};
+	static final byte[] INTRODUCTION = 
+		{
+			0x63,
+			0x6a,
+			0x10,
+			0x28
+		};
 	static final byte TARGET_ID = 0x3A;
 	public static void main(String[] args)
 	{
-		PiServerExample pie=new PiServerExample();
+		PiClientExample pie=new PiClientExample();
 		System.out.println("Test");
 		if(args.length>0)
 		{
@@ -86,25 +92,61 @@ public class PiServerExample
 		webcam.setViewSize(new Dimension(320, 240));
 		webcam.open();
 		System.out.println("Webcam opened.");
-		si.initialize();
-		si.webcam=webcam;
-		thread=new Thread(si);
-		thread.start();
 		openSockets();
 	}
 	private void openSockets()
 	{
 		try
 		{
-			serverSocket = new ServerSocket(portNumber);
-			clientSocket = serverSocket.accept();
-			System.out.println(clientSocket.getInetAddress().getHostAddress());
-			out = new DataOutputStream(clientSocket.getOutputStream());
-			in = new DataInputStream(clientSocket.getInputStream());
-			byte[] introduction=new byte[4];
-			in.read(introduction, 0, 4);
-			out.write(introduction);
-		} 
+			socket=new Socket(hostName, portNumber);
+		}
+		catch (IOException e)
+		{
+			try 
+			{
+				Thread.sleep(100);
+			} 
+			catch (InterruptedException e1) 
+			{
+				e1.printStackTrace();
+			}
+			openSockets();
+		}
+		try
+		{
+			out=new DataOutputStream(socket.getOutputStream());
+			in=new DataInputStream(socket.getInputStream());
+			
+			out.write(INTRODUCTION);
+			byte[] reply=new byte[INTRODUCTION.length];
+			in.read(reply, 0, INTRODUCTION.length);
+			
+			boolean replyMatch=true;
+			for(int i=0;i<INTRODUCTION.length;i++)
+			{
+				if(INTRODUCTION[i]!=reply[i])
+				{
+					replyMatch=false;
+					System.out.printf("Reply did not match. At index [%d], expected [%d] got [%d\n", i, INTRODUCTION[i], reply[i]);
+					break;
+				}
+			}
+			
+			if(replyMatch)
+			{
+				System.out.println("Connection established.");
+			}
+			else
+			{
+				System.out.println("Received bytes: ");
+				for(int i=0;i<reply.length;i++)
+				{
+					System.out.printf(" [%d]", reply[i]);
+				}
+				System.out.println("");
+				System.out.println("Connection failed.");
+			}
+		}
 		catch (IOException e)
 		{
 			e.printStackTrace();

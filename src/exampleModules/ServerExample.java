@@ -2,21 +2,24 @@ package exampleModules;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.Scanner;
 
 //Run this on the robot
-public class ClientExample
+public class ServerExample
 {
 	Socket socket=null;
 	DataOutputStream out=null;
 	DataInputStream in=null;
+	ServerSocket serverSocket=null;
+	Socket clientSocket=null;
 	static final String hostName=
 			//"169.254.139.222";
 			"10.29.76.68";
-	static final int portNumber=5800;
+	static final int portNumber=1735;
 	static final byte[] INTRODUCTION = 
 		{
 			0x63,
@@ -38,7 +41,7 @@ public class ClientExample
 	boolean singleTarget=true;
 	public static void main(String[] args)
 	{
-		ClientExample ce=new ClientExample();
+		ServerExample ce=new ServerExample();
 		ce.initialize();
 		Scanner s=new Scanner(System.in);//Only use for checking connection
 		//while(true)
@@ -62,39 +65,14 @@ public class ClientExample
 	{
 		try
 		{
-			socket=new Socket(hostName, portNumber);
-			out=new DataOutputStream(socket.getOutputStream());
-			in=new DataInputStream(socket.getInputStream());
-			
-			out.write(INTRODUCTION);
-			byte[] reply=new byte[INTRODUCTION.length];
-			in.read(reply, 0, INTRODUCTION.length);
-			
-			boolean replyMatch=true;
-			for(int i=0;i<INTRODUCTION.length;i++)
-			{
-				if(INTRODUCTION[i]!=reply[i])
-				{
-					replyMatch=false;
-					System.out.printf("Reply did not match. At index [%d], expected [%d] got [%d\n", i, INTRODUCTION[i], reply[i]);
-					break;
-				}
-			}
-			
-			if(replyMatch)
-			{
-				System.out.println("Connection established.");
-			}
-			else
-			{
-				System.out.println("Received bytes: ");
-				for(int i=0;i<reply.length;i++)
-				{
-					System.out.printf(" [%d]", reply[i]);
-				}
-				System.out.println("");
-				System.out.println("Connection failed.");
-			}
+			serverSocket = new ServerSocket(portNumber);
+			clientSocket = serverSocket.accept();
+			System.out.println(clientSocket.getInetAddress().getHostAddress());
+			out = new DataOutputStream(clientSocket.getOutputStream());
+			in = new DataInputStream(clientSocket.getInputStream());
+			byte[] introduction=new byte[4];
+			in.read(introduction, 0, 4);
+			out.write(introduction);
 			
 		} catch (UnknownHostException e)
 		{

@@ -33,7 +33,7 @@ public class Vision17
 		};
 	public static double VIEW_ANGLE= Math.toRadians(67.9446)/2;
 	public final static double MIN_SIZE_RATIO = 500.0/(640.0*480.0);
-	
+	static final boolean useCanny = true;
 	public boolean[][] map=null;
 	public int[][][] rgb=null;
 	public ArrayList<Particle> edges=null;
@@ -71,23 +71,32 @@ public class Vision17
 		t[2]=System.currentTimeMillis();
 		image = new Dimension(image2.getWidth(), image2.getHeight());
 		ArrayList<Particle> particles;
-		EdgeDetector ed=new EdgeDetector(4);
-		fl.printf("INFO: Misc. Variable setting time: [%d]"+System.lineSeparator(), System.currentTimeMillis()-t[2]);
-		t[2]=System.currentTimeMillis();
-		ed.init(Conv.generateFloatMap(rgb));
-		fl.printf("INFO: EdgeDetector.init time: [%d]"+System.lineSeparator(), System.currentTimeMillis()-t[2]);
-		t[2]=System.currentTimeMillis();
-		ed.execSingle();
-		fl.printf("INFO: Edge Detector exec time: [%d]"+System.lineSeparator(), System.currentTimeMillis()-t[2]);
-		fl.printf("INFO: Edge find time: [%d] ms"+System.lineSeparator(), System.currentTimeMillis()-t[0]);
-		t[0]=System.currentTimeMillis();
-		ArrayList<Particle> edges=ed.getEdges();
-		this.edges=edges;
-		findCorners(edges);
-		edges=filterShortParticles(edges, 7);
-		edges=filterLongParticles(edges, image);
-		particles=EdgeFiller.fillEdgeTest(edges);
-		particles=filterInvalidParticles(particles, image);
+		if(useCanny)
+		{
+			EdgeDetector ed=new EdgeDetector(4);
+			fl.printf("INFO: Misc. Variable setting time: [%d]"+System.lineSeparator(), System.currentTimeMillis()-t[2]);
+			t[2]=System.currentTimeMillis();
+			ed.init(Conv.generateFloatMap(rgb));
+			fl.printf("INFO: EdgeDetector.init time: [%d]"+System.lineSeparator(), System.currentTimeMillis()-t[2]);
+			t[2]=System.currentTimeMillis();
+			ed.execSingle();
+			fl.printf("INFO: Edge Detector exec time: [%d]"+System.lineSeparator(), System.currentTimeMillis()-t[2]);
+			fl.printf("INFO: Edge find time: [%d] ms"+System.lineSeparator(), System.currentTimeMillis()-t[0]);
+			t[0]=System.currentTimeMillis();
+			ArrayList<Particle> edges=ed.getEdges();
+			this.edges=edges;
+			findCorners(edges);
+			edges=filterShortParticles(edges, 7);
+			edges=filterLongParticles(edges, image);
+			particles=EdgeFiller.fillEdgeTest(edges);
+		}
+		else
+		{
+			map = createMap(rgb);
+			particles=Vision17.findParticles(map);
+			findCorners(particles);
+		}
+		//particles=filterInvalidParticles(particles, image);
 		if(particles.size()==0)
 		{
 			fl.println("WARNING: No edges detected. Returning NULL target.");
@@ -863,7 +872,7 @@ public class Vision17
 	
 	public static ArrayList<Particle> findParticles(boolean[][] map)// Generates rectangles for every point
 	{
-		final int minimumAlive = 700;
+		final int minimumAlive = 0;
 		
 		boolean[][] mapCopy = Array2DCopier.copyOf(map);
 		ArrayList<Particle> toReturn = new ArrayList<Particle>();
@@ -1026,7 +1035,7 @@ public class Vision17
 	public static double findParticleDistance(double width, double idealwidth, int imagewidth)
 	{
 		double distance = idealwidth* imagewidth/ (2 * width* Math.tan(VIEW_ANGLE));
-		return distance;
+		return distance*1.4;
 	}
 	public static double distance(Point p, Point p2)
 	{
@@ -1046,12 +1055,12 @@ public class Vision17
 		this.image1=image1;
 		this.image2=image2;
 	}
-	public boolean[][] createMap(BufferedImage picture)// Because x & y are irrelevant here, do not bother changing i & j places in map array
+	public boolean[][] createMap(int[][][] rgb)// Because x & y are irrelevant here, do not bother changing i & j places in map array
 	{
-		rgb = getArray(picture);
 		boolean[][] map = new boolean[rgb.length][rgb[0].length];
 		//map = useHsl(map, image, hmin, hmax, smin, lmin, lmax);
-		map=useHsv(map, rgb);
+		//map=useHsv(map, rgb);
+		map=useGreeness(map, rgb);
 		//map=advancedHSV(map, image);
 		// LightHSL is experimental idea, more lenient towards pixels surrounded by alive cells
 		// map=lightHsl(map,image, hmin, hmax, smin, lmin, lmax);
@@ -1236,6 +1245,8 @@ public class Vision17
 		{
 			alpha=1.5f;
 		}
+		alpha=2.0f;
+		beta = -200;
 		int[][][] rgb=new int[height][width][3];
 		for(int i=0, row = 0, col = 0;i<red.length;i++)
 		{
@@ -1418,6 +1429,31 @@ public class Vision17
 				map[i][j] = valid;
 			}
 		}
+		return map;
+	}
+	public static boolean[][] useGreeness(boolean[][] map, int[][][] image)
+	{
+		//Modified code from useHsl
+		int count=0;
+		for (int i = 0; i < image.length; i++)
+		{
+			for (int j = 0; j < image[0].length; j++)
+			{
+				boolean valid=true;
+				int score = (int) ((image[i][j][2]*0.5)+image[i][j][1]-(image[i][j][0]*1.0f));
+				if(score>170)
+				{
+					count++;
+					valid=true;
+				}
+				else
+				{
+					valid=false;
+				}
+				map[i][j] = valid;
+			}
+		}
+		System.out.println(count);
 		return map;
 	}
 	public static int[] getHSV(int red, int green, int blue)
