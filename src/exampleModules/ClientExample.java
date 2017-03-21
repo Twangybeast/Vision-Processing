@@ -14,7 +14,7 @@ public class ClientExample
 	DataOutputStream out=null;
 	DataInputStream in=null;
 	static final String hostName="raspberrypi.local";
-	static final int portNumber=1735;
+	static final int portNumber=5800;
 	static final byte[] INTRODUCTION = 
 		{
 			0x63,
