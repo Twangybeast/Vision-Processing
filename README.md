@@ -1,8 +1,5 @@
 # Vision-Processing OUTDATED README.md. INSTRUCTIONS ARE FOR PREVIOUS ITERATION. 
-I did stuff.  
-This is the stuff.  
-I am good at doing stuff.
-  
+
 Main Classes:  
 PiTest - Takes a picture and processes it, printing the results to the console  
 Test - Should no longer be used, replaced by PictureController  
